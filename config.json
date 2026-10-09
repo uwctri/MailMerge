@@ -41,7 +41,7 @@
   ],
   "crons": [
     {
-      "cron_name": "cronMailMergeLetters",
+      "cron_name": "mail_merge_letters",
       "cron_description": "Evaluates active letter rules daily and generates due letters.",
       "method": "cronMailMergeLetters",
       "cron_frequency": 86400,
