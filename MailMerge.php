@@ -13,22 +13,29 @@ use REDCap;
 use Files;
 
 class MailMerge extends AbstractExternalModule {
-    public function ensureFileRepoEnabled($pid): void {
-        $res = $this->query("SELECT file_repository FROM redcap_projects WHERE project_id = ?", [$pid]);
-        $row = $res->fetch_assoc();
-        if ($row && $row['file_repository'] == 0)
-            $this->query("UPDATE redcap_projects SET file_repository = 1 WHERE project_id = ?", [$pid]);
+    public function checkFileRepoAccess(): array {
+        if (($GLOBALS['file_repository_enabled'] ?? '1') != '1')
+            return ['allowed' => false, 'message' => 'The File Repository is disabled at the system level on this REDCap server. Please contact a system administrator to enable it.'];
+
+        if (defined('SUPER_USER') && SUPER_USER) return ['allowed' => true];
+
+        $rights = REDCap::getUserRights(USERID);
+        $u = $rights[USERID];
+        if (empty($u['file_repository']) || $u['file_repository'] == '0')
+            return ['allowed' => false, 'message' => 'Access Denied: You do not have File Repository permissions in this project. Please request File Repository access from a project administrator.'];
+
+        return ['allowed' => true];
     }
 
     public function redcap_module_link_check_display($project_id, $link): ?array {
-        $rights = REDCap::getUserRights(USERID);
-        $u = $rights[USERID];
-        if ($u['design'] != '1' && $u['user_rights'] != '1') return null;
+        $access = $this->checkFileRepoAccess();
+        if (!$access['allowed']) return null;
         return $link;
     }
 
     public function redcap_module_ajax($action, $payload, $project_id, $record) {
-        $this->ensureFileRepoEnabled($project_id);
+        $access = $this->checkFileRepoAccess();
+        if (!$access['allowed']) return ['success' => false, 'error' => $access['message']];
 
         if ($action === 'uploadTemplates') return $this->handleTemplateUploads($project_id, $payload['files']);
         if ($action === 'getTemplates') return ['success' => true, 'templates' => $this->getTemplates($project_id)];

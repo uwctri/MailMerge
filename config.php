@@ -10,7 +10,20 @@ namespace UWMadison\MailMerge;
 use REDCap;
 
 $projectId = (int)$_GET['pid'];
-$module->ensureFileRepoEnabled($projectId);
+$access = $module->checkFileRepoAccess();
+if (!$access['allowed']) {
+    echo "<div class='container-fluid py-5 px-4' style='max-width: 900px;'>
+        <div class='alert alert-warning border shadow-sm p-4 d-flex align-items-center gap-3 rounded-3'>
+            <i class='fas fa-exclamation-triangle fa-2x text-warning'></i>
+            <div>
+                <h5 class='fw-bold mb-1'>File Repository Access Required</h5>
+                <div class='text-dark'>" . htmlspecialchars($access['message'], ENT_QUOTES) . "</div>
+            </div>
+        </div>
+    </div>";
+    return;
+}
+
 $module->initializeJavascriptModuleObject();
 
 $fields = REDCap::getFieldNames();
