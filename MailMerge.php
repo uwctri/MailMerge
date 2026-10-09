@@ -27,6 +27,26 @@ class MailMerge extends AbstractExternalModule {
         return ['allowed' => true];
     }
 
+    public function getMailMergeFolderId($pid): int {
+        $res = $this->query("SELECT folder_id FROM redcap_docs_folders WHERE project_id = ? AND name = 'MailMerge' AND deleted = 0 LIMIT 1", [$pid]);
+        $row = $res->fetch_assoc();
+        if ($row) return (int)$row['folder_id'];
+
+        $this->query("INSERT INTO redcap_docs_folders (project_id, name) VALUES (?, 'MailMerge')", [$pid]);
+        $q = $this->query("SELECT folder_id FROM redcap_docs_folders WHERE project_id = ? AND name = 'MailMerge' AND deleted = 0 ORDER BY folder_id DESC LIMIT 1", [$pid]);
+        $r = $q->fetch_assoc();
+        return (int)$r['folder_id'];
+    }
+
+    public function addToFileRepoFolder($docId, $pid, $comment): void {
+        REDCap::addFileToRepository($docId, $pid, $comment);
+        $folderId = $this->getMailMergeFolderId($pid);
+        $res = $this->query("SELECT docs_id FROM redcap_docs_to_edocs WHERE doc_id = ? ORDER BY docs_id DESC LIMIT 1", [$docId]);
+        $row = $res->fetch_assoc();
+        if ($row)
+            $this->query("INSERT IGNORE INTO redcap_docs_folders_files (docs_id, folder_id) VALUES (?, ?)", [(int)$row['docs_id'], $folderId]);
+    }
+
     public function redcap_module_link_check_display($project_id, $link): ?array {
         $access = $this->checkFileRepoAccess();
         if (!$access['allowed']) return null;
@@ -85,7 +105,7 @@ class MailMerge extends AbstractExternalModule {
                 continue;
             }
 
-            REDCap::addFileToRepository($docId, $pid, "Mail Merge Template: " . $name);
+            $this->addToFileRepoFolder($docId, $pid, "Mail Merge Template: " . $name);
 
             $item = [
                 'doc_id' => $docId,
@@ -153,8 +173,10 @@ class MailMerge extends AbstractExternalModule {
                 $row = $recordEvents[$primaryEvent] ?? [];
 
                 $flagField = trim($rule['flag_field'] ?? '');
-                if ($flagField !== '' && ($row[$flagField] ?? '') == $rule['flag_value'])
-                    continue;
+                if ($flagField !== '') {
+                    $val = trim((string)($row[$flagField] ?? ''));
+                    if ($val !== '' && $val !== '0') continue;
+                }
 
                 $queue[] = [
                     'rule_id' => $rule['id'],
@@ -247,14 +269,22 @@ class MailMerge extends AbstractExternalModule {
         if (!$outDocId) return ['success' => false, 'error' => 'Failed to store generated letter'];
 
         $filename = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $rule['title']) . "_{$recordId}_" . date('Ymd_His') . '.docx';
-        REDCap::addFileToRepository($outDocId, $pid, "Generated Letter: {$filename}");
+        $this->addToFileRepoFolder($outDocId, $pid, "Generated Letter: {$filename}");
 
         if (!$isTest && !empty($rule['flag_field'])) {
+            $flagField = trim($rule['flag_field']);
+            $flagValue = '1';
+            $dict = REDCap::getDataDictionary($pid, 'array', false, [$flagField]);
+            $valType = $dict[$flagField]['text_validation_type_or_show_slider_number'] ?? '';
+            if (str_starts_with($valType, 'datetime_seconds')) $flagValue = date('Y-m-d H:i:s');
+            else if (str_starts_with($valType, 'datetime')) $flagValue = date('Y-m-d H:i');
+            else if (str_starts_with($valType, 'date')) $flagValue = date('Y-m-d');
+
             REDCap::saveData($pid, 'json', json_encode([
                 [
                     'record_id' => $recordId,
                     'redcap_event_name' => REDCap::getEventNames(true, false, $eventId),
-                    $rule['flag_field'] => $rule['flag_value'] ?: '1',
+                    $flagField => $flagValue,
                 ]
             ]));
         }
