@@ -1,7 +1,7 @@
 {
-  "name": "Mail Merge & Letter Creation",
+  "name": "MailMerge",
   "namespace": "UWMadison\\MailMerge",
-  "description": "Automated Word document mail merge, multi-template drag-and-drop management, and letter creation engine for REDCap.",
+  "description": "Automated Word doc mail merge. Generate letters from templates to print, store in a field, or in the repo.",
   "framework-version": 17,
   "authors": [
     {
