@@ -1,0 +1,48 @@
+{
+  "name": "MailMerge",
+  "namespace": "UWMadison\\MailMerge",
+  "description": "Automated Word doc mail merge. Generate letters from templates to print, store in a field, or in the repo.",
+  "framework-version": 17,
+  "authors": [
+    {
+      "name": "Adam Nunez",
+      "email": "adam.Nunez@ctri.wisc.edu",
+      "institution": "UW Madison - Center for Tobacco Research and Intervention"
+    }
+  ],
+  "links": {
+    "project": [
+      {
+        "name": "Mail Merge Studio",
+        "icon": "fas fa-envelope-open-text",
+        "url": "config.php",
+        "show-header-and-footer": true
+      },
+      {
+        "name": "Letter Queue",
+        "icon": "fas fa-print",
+        "url": "queue.php",
+        "show-header-and-footer": true
+      }
+    ]
+  },
+  "auth-ajax-actions": [
+    "uploadTemplates",
+    "getTemplates",
+    "deleteTemplate",
+    "saveLetterRules",
+    "getLetterRules",
+    "evaluateQueue",
+    "generateLetters",
+    "testMerge"
+  ],
+  "crons": [
+    {
+      "cron_name": "cronMailMergeLetters",
+      "cron_description": "Evaluates active letter rules daily and generates due letters.",
+      "method": "cronMailMergeLetters",
+      "cron_frequency": 86400,
+      "cron_max_run_time": 3600
+    }
+  ]
+}
