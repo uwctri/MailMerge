@@ -43,6 +43,9 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 <script src="<?= htmlspecialchars($alpineUrl, ENT_QUOTES) ?>" defer></script>
 
 <style>
+[x-cloak] {
+    display: none !important;
+}
 .drop-zone {
     border: 2px dashed #0d6efd;
     background-color: #f8faff;
@@ -100,7 +103,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 }
 </style>
 
-<div class="ps-2 pe-3 py-3 w-100" x-data="mailMergeApp()">
+<div class="ps-2 pe-3 py-3 w-100" x-data="mailMergeApp()" x-cloak>
     <!-- Top Bar -->
     <div class="d-flex align-items-center justify-content-between pb-3 mb-3 border-bottom">
         <div class="d-flex align-items-center gap-3">
@@ -179,63 +182,72 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                 </div>
             </div>
             <div class="card-body p-0">
-                <div class="table-responsive" x-show="queue.length > 0">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light small text-muted text-uppercase">
-                            <tr>
-                                <th style="width: 40px;"></th>
-                                <th>Record ID</th>
-                                <th>Recipient</th>
-                                <th>Letter Title</th>
-                                <th>Event</th>
-                                <th class="text-end">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <template x-for="(item, idx) in queue" :key="idx">
+                <!-- Records Table -->
+                <template x-if="!loadingQueue && queue.length > 0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light small text-muted text-uppercase">
                                 <tr>
-                                    <td>
-                                        <input type="checkbox" class="form-check-input" :value="idx" x-model="selected">
-                                    </td>
-                                    <td class="fw-bold text-primary" x-text="item.record_id"></td>
-                                    <td x-text="item.recipient"></td>
-                                    <td>
-                                        <span class="badge bg-light text-dark border" x-text="item.rule_title"></span>
-                                    </td>
-                                    <td class="small text-muted" x-text="item.event_id || 'Default'"></td>
-                                    <td class="text-end">
-                                        <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2" @click="generateSingle(item)" :disabled="generating">
-                                            <i class="fas fa-play me-1"></i> Generate
-                                        </button>
-                                    </td>
+                                    <th style="width: 40px;"></th>
+                                    <th>Record ID</th>
+                                    <th>Recipient</th>
+                                    <th>Letter Title</th>
+                                    <th>Event</th>
+                                    <th class="text-end">Actions</th>
                                 </tr>
-                            </template>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Empty State 1: No rules configured yet -->
-                <div x-show="rules.length === 0 && !loadingQueue" class="d-flex flex-column align-items-center justify-content-center text-center py-5 w-100">
-                    <i class="fas fa-sliders-h fa-3x text-muted mb-3 opacity-50"></i>
-                    <h5 class="fw-bold text-dark">No Letter Rules Configured</h5>
-                    <p class="small text-muted mb-3" style="max-width: 420px;">You have not created any letter rules yet. Head to the Configuration tab to define rules and triggers.</p>
-                    <button type="button" class="btn btn-primary btn-sm" @click="activeTab = 'config'">
-                        <i class="fas fa-cogs me-1"></i> Go to Configuration
-                    </button>
-                </div>
-
-                <!-- Empty State 2: Rules exist but no records qualify -->
-                <div x-show="rules.length > 0 && queue.length === 0 && !loadingQueue" class="d-flex flex-column align-items-center justify-content-center text-center py-5 w-100">
-                    <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
-                    <h5 class="fw-bold text-dark">All caught up!</h5>
-                    <p class="small text-muted mb-0">No participants currently qualify for letters.</p>
-                </div>
+                            </thead>
+                            <tbody>
+                                <template x-for="(item, idx) in queue" :key="idx">
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" class="form-check-input" :value="idx" x-model="selected">
+                                        </td>
+                                        <td class="fw-bold text-primary" x-text="item.record_id"></td>
+                                        <td x-text="item.recipient"></td>
+                                        <td>
+                                            <span class="badge bg-light text-dark border" x-text="item.rule_title"></span>
+                                        </td>
+                                        <td class="small text-muted" x-text="item.event_id || 'Default'"></td>
+                                        <td class="text-end">
+                                            <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2" @click="generateSingle(item)" :disabled="generating">
+                                                <i class="fas fa-play me-1"></i> Generate
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </template>
 
                 <!-- Loading State -->
-                <div x-show="loadingQueue" class="d-flex flex-column align-items-center justify-content-center text-center py-5 w-100">
-                    <i class="fas fa-spinner fa-spin fa-2x mb-2 text-primary"></i>
-                    <p class="small text-muted mb-0">Evaluating letter rules against study records...</p>
-                </div>
+                <template x-if="loadingQueue">
+                    <div class="d-flex flex-column align-items-center justify-content-center text-center py-5 w-100">
+                        <i class="fas fa-spinner fa-spin fa-2x mb-2 text-primary"></i>
+                        <p class="small text-muted mb-0">Evaluating letter rules against study records...</p>
+                    </div>
+                </template>
+
+                <!-- Empty State 1: No rules configured yet -->
+                <template x-if="!loadingQueue && rules.length === 0">
+                    <div class="d-flex flex-column align-items-center justify-content-center text-center py-5 w-100">
+                        <i class="fas fa-sliders-h fa-3x text-muted mb-3 opacity-50"></i>
+                        <h5 class="fw-bold text-dark">No Letter Rules Configured</h5>
+                        <p class="small text-muted mb-3" style="max-width: 420px;">You have not created any letter rules yet. Head to the Configuration tab to define rules and triggers.</p>
+                        <button type="button" class="btn btn-primary btn-sm" @click="activeTab = 'config'">
+                            <i class="fas fa-cogs me-1"></i> Go to Configuration
+                        </button>
+                    </div>
+                </template>
+
+                <!-- Empty State 2: Rules exist but no records qualify -->
+                <template x-if="!loadingQueue && rules.length > 0 && queue.length === 0">
+                    <div class="d-flex flex-column align-items-center justify-content-center text-center py-5 w-100">
+                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                        <h5 class="fw-bold text-dark">All caught up!</h5>
+                        <p class="small text-muted mb-0">No participants currently qualify for letters.</p>
+                    </div>
+                </template>
             </div>
         </div>
     </div>
@@ -383,7 +395,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                             <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
                                 <i class="fas fa-info-circle text-muted cursor-pointer"></i>
                                 <div x-show="tip" x-transition class="hover-tip">
-                                    Folder name in the project's File Repository where uploaded Word templates will be organized.
+                                    Folder path in the project's File Repository where uploaded Word templates will be organized. Supports subfolder paths (e.g. MailMerge Templates or Templates/{date}) and placeholder tags: {date}, {timestamp}.
                                 </div>
                             </span>
                         </label>
@@ -396,11 +408,11 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                             <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
                                 <i class="fas fa-info-circle text-muted cursor-pointer"></i>
                                 <div x-show="tip" x-transition class="hover-tip">
-                                    Folder name in the project's File Repository where generated letters will be archived.
+                                    Folder path in the project's File Repository where generated letters will be archived. Default: MailMerge Letters/{date}. Supports subfolder paths (e.g. Letters/{date}/{record}) and placeholder tags: {record}, {letter_name}, {date}, {timestamp}.
                                 </div>
                             </span>
                         </label>
-                        <input type="text" class="form-control form-control-sm" x-model="settings.file_repo_letters_folder" placeholder="e.g. MailMerge Letters">
+                        <input type="text" class="form-control form-control-sm" x-model="settings.file_repo_letters_folder" placeholder="e.g. MailMerge Letters/{date}">
                     </div>
                 </div>
             </div>
@@ -564,7 +576,7 @@ function mailMergeApp() {
         events: <?= json_encode($events) ?>,
         queue: [],
         selected: [],
-        loadingQueue: false,
+        loadingQueue: true,
         generating: false,
         uploadQueue: [],
         isDragging: false,

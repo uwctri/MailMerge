@@ -27,21 +27,55 @@ class MailMerge extends AbstractExternalModule {
         return ['allowed' => true];
     }
 
-    public function getFolderId($pid, $folderName): int {
-        $cleanName = trim($folderName) ?: 'MailMerge';
-        $res = $this->query("SELECT folder_id FROM redcap_docs_folders WHERE project_id = ? AND name = ? AND deleted = 0 LIMIT 1", [$pid, $cleanName]);
-        $row = $res->fetch_assoc();
-        if ($row) return (int)$row['folder_id'];
-
-        $this->query("INSERT INTO redcap_docs_folders (project_id, name) VALUES (?, ?)", [$pid, $cleanName]);
-        $q = $this->query("SELECT folder_id FROM redcap_docs_folders WHERE project_id = ? AND name = ? AND deleted = 0 ORDER BY folder_id DESC LIMIT 1", [$pid, $cleanName]);
-        $r = $q->fetch_assoc();
-        return (int)$r['folder_id'];
+    public function resolvePlaceholders(string $pattern, string $recordId = '', string $letterName = ''): string {
+        $cleanLetter = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $letterName);
+        return str_replace(
+            ['{record}', '{letter_name}', '{date}', '{timestamp}'],
+            [$recordId, $cleanLetter, date('Y-m-d'), date('Ymd_His')],
+            $pattern
+        );
     }
 
-    public function addToFileRepoFolder($docId, $pid, $comment, $folderName = 'MailMerge'): void {
+    public function getFolderId($pid, $folderPath, string $recordId = '', string $letterName = ''): int {
+        $resolved = $this->resolvePlaceholders((string)$folderPath, $recordId, $letterName);
+        $normalized = trim(str_replace('\\', '/', $resolved), '/ ');
+        if ($normalized === '') return 0;
+
+        $segments = array_values(array_filter(explode('/', $normalized), fn($s) => trim($s) !== ''));
+        if (empty($segments)) return 0;
+
+        $parentId = null;
+        foreach ($segments as $seg) {
+            $cleanName = trim($seg);
+            if ($cleanName === '') continue;
+
+            $sql = $parentId === null
+                ? "SELECT folder_id FROM redcap_docs_folders WHERE project_id = ? AND name = ? AND parent_folder_id IS NULL AND deleted = 0 LIMIT 1"
+                : "SELECT folder_id FROM redcap_docs_folders WHERE project_id = ? AND name = ? AND parent_folder_id = ? AND deleted = 0 LIMIT 1";
+            $params = $parentId === null ? [$pid, $cleanName] : [$pid, $cleanName, $parentId];
+            $row = $this->query($sql, $params)->fetch_assoc();
+            if ($row) {
+                $parentId = (int)$row['folder_id'];
+                continue;
+            }
+
+            if ($parentId === null) {
+                $this->query("INSERT INTO redcap_docs_folders (project_id, name, parent_folder_id) VALUES (?, ?, NULL)", [$pid, $cleanName]);
+                $q = $this->query("SELECT folder_id FROM redcap_docs_folders WHERE project_id = ? AND name = ? AND parent_folder_id IS NULL AND deleted = 0 ORDER BY folder_id DESC LIMIT 1", [$pid, $cleanName]);
+            } else {
+                $this->query("INSERT INTO redcap_docs_folders (project_id, name, parent_folder_id) VALUES (?, ?, ?)", [$pid, $cleanName, $parentId]);
+                $q = $this->query("SELECT folder_id FROM redcap_docs_folders WHERE project_id = ? AND name = ? AND parent_folder_id = ? AND deleted = 0 ORDER BY folder_id DESC LIMIT 1", [$pid, $cleanName, $parentId]);
+            }
+            $parentId = (int)$q->fetch_assoc()['folder_id'];
+        }
+
+        return (int)($parentId ?? 0);
+    }
+
+    public function addToFileRepoFolder($docId, $pid, $comment, $folderPath = 'MailMerge', string $recordId = '', string $letterName = ''): void {
         REDCap::addFileToRepository($docId, $pid, $comment);
-        $folderId = $this->getFolderId($pid, $folderName);
+        $folderId = $this->getFolderId($pid, $folderPath, $recordId, $letterName);
+        if ($folderId <= 0) return;
         $res = $this->query("SELECT docs_id FROM redcap_docs_to_edocs WHERE doc_id = ? ORDER BY docs_id DESC LIMIT 1", [$docId]);
         $row = $res->fetch_assoc();
         if ($row)
@@ -77,7 +111,7 @@ class MailMerge extends AbstractExternalModule {
             'automation_mode' => $this->getProjectSetting('automation_mode', $pid) ?: 'queued',
             'server_output_path' => $this->getProjectSetting('server_output_path', $pid) ?: '',
             'file_repo_templates_folder' => $this->getProjectSetting('file_repo_templates_folder', $pid) ?: 'MailMerge Templates',
-            'file_repo_letters_folder' => $this->getProjectSetting('file_repo_letters_folder', $pid) ?: 'MailMerge Letters',
+            'file_repo_letters_folder' => $this->getProjectSetting('file_repo_letters_folder', $pid) ?: 'MailMerge Letters/{date}',
         ];
     }
 
@@ -85,7 +119,7 @@ class MailMerge extends AbstractExternalModule {
         $this->setProjectSetting('automation_mode', $cfg['automation_mode'] ?? 'queued', $pid);
         $this->setProjectSetting('server_output_path', $cfg['server_output_path'] ?? '', $pid);
         $this->setProjectSetting('file_repo_templates_folder', $cfg['file_repo_templates_folder'] ?? 'MailMerge Templates', $pid);
-        $this->setProjectSetting('file_repo_letters_folder', $cfg['file_repo_letters_folder'] ?? 'MailMerge Letters', $pid);
+        $this->setProjectSetting('file_repo_letters_folder', $cfg['file_repo_letters_folder'] ?? 'MailMerge Letters/{date}', $pid);
         return ['success' => true];
     }
 
@@ -286,12 +320,7 @@ class MailMerge extends AbstractExternalModule {
             return ['success' => false, 'error' => 'Word document merge failed'];
 
         $scheme = trim($rule['filename_scheme'] ?? '') ?: '{record}_{letter_name}';
-        $cleanTitle = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $rule['title']);
-        $filename = str_replace(
-            ['{record}', '{letter_name}', '{date}', '{timestamp}'],
-            [$recordId, $cleanTitle, date('Y-m-d'), date('Ymd_His')],
-            $scheme
-        );
+        $filename = $this->resolvePlaceholders($scheme, $recordId, $rule['title']);
         $filename = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $filename);
         if (!str_ends_with(strtolower($filename), '.docx')) $filename .= '.docx';
 
@@ -306,8 +335,8 @@ class MailMerge extends AbstractExternalModule {
         @unlink($outPath);
         if (!$outDocId) return ['success' => false, 'error' => 'Failed to store generated letter'];
 
-        $letterFolder = $this->getProjectSetting('file_repo_letters_folder', $pid) ?: 'MailMerge Letters';
-        $this->addToFileRepoFolder($outDocId, $pid, "Generated Letter: {$filename}", $letterFolder);
+        $letterFolder = $this->getProjectSetting('file_repo_letters_folder', $pid) ?: 'MailMerge Letters/{date}';
+        $this->addToFileRepoFolder($outDocId, $pid, "Generated Letter: {$filename}", $letterFolder, $recordId, $rule['title']);
 
         if (!$isTest && !empty($rule['flag_field'])) {
             $flagField = trim($rule['flag_field']);
