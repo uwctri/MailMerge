@@ -27,20 +27,21 @@ class MailMerge extends AbstractExternalModule {
         return ['allowed' => true];
     }
 
-    public function getMailMergeFolderId($pid): int {
-        $res = $this->query("SELECT folder_id FROM redcap_docs_folders WHERE project_id = ? AND name = 'MailMerge' AND deleted = 0 LIMIT 1", [$pid]);
+    public function getFolderId($pid, $folderName): int {
+        $cleanName = trim($folderName) ?: 'MailMerge';
+        $res = $this->query("SELECT folder_id FROM redcap_docs_folders WHERE project_id = ? AND name = ? AND deleted = 0 LIMIT 1", [$pid, $cleanName]);
         $row = $res->fetch_assoc();
         if ($row) return (int)$row['folder_id'];
 
-        $this->query("INSERT INTO redcap_docs_folders (project_id, name) VALUES (?, 'MailMerge')", [$pid]);
-        $q = $this->query("SELECT folder_id FROM redcap_docs_folders WHERE project_id = ? AND name = 'MailMerge' AND deleted = 0 ORDER BY folder_id DESC LIMIT 1", [$pid]);
+        $this->query("INSERT INTO redcap_docs_folders (project_id, name) VALUES (?, ?)", [$pid, $cleanName]);
+        $q = $this->query("SELECT folder_id FROM redcap_docs_folders WHERE project_id = ? AND name = ? AND deleted = 0 ORDER BY folder_id DESC LIMIT 1", [$pid, $cleanName]);
         $r = $q->fetch_assoc();
         return (int)$r['folder_id'];
     }
 
-    public function addToFileRepoFolder($docId, $pid, $comment): void {
+    public function addToFileRepoFolder($docId, $pid, $comment, $folderName = 'MailMerge'): void {
         REDCap::addFileToRepository($docId, $pid, $comment);
-        $folderId = $this->getMailMergeFolderId($pid);
+        $folderId = $this->getFolderId($pid, $folderName);
         $res = $this->query("SELECT docs_id FROM redcap_docs_to_edocs WHERE doc_id = ? ORDER BY docs_id DESC LIMIT 1", [$docId]);
         $row = $res->fetch_assoc();
         if ($row)
@@ -62,6 +63,8 @@ class MailMerge extends AbstractExternalModule {
         if ($action === 'deleteTemplate') return $this->deleteTemplate($project_id, $payload['doc_id']);
         if ($action === 'getLetterRules') return ['success' => true, 'rules' => $this->getLetterRules($project_id)];
         if ($action === 'saveLetterRules') return $this->saveLetterRules($project_id, $payload['rules']);
+        if ($action === 'getSettings') return ['success' => true, 'settings' => $this->getProjectConfig($project_id)];
+        if ($action === 'saveSettings') return $this->saveProjectConfig($project_id, $payload['settings']);
         if ($action === 'evaluateQueue') return ['success' => true, 'queue' => $this->evaluateQueue($project_id)];
         if ($action === 'generateLetters') return $this->generateLetters($project_id, $payload['items']);
         if ($action === 'testMerge') return $this->testMerge($project_id, $payload['rule_id'], $payload['record_id']);
@@ -69,10 +72,28 @@ class MailMerge extends AbstractExternalModule {
         return ['success' => false, 'error' => 'Unknown action'];
     }
 
+    public function getProjectConfig($pid): array {
+        return [
+            'automation_mode' => $this->getProjectSetting('automation_mode', $pid) ?: 'queued',
+            'server_output_path' => $this->getProjectSetting('server_output_path', $pid) ?: '',
+            'file_repo_templates_folder' => $this->getProjectSetting('file_repo_templates_folder', $pid) ?: 'MailMerge Templates',
+            'file_repo_letters_folder' => $this->getProjectSetting('file_repo_letters_folder', $pid) ?: 'MailMerge Letters',
+        ];
+    }
+
+    public function saveProjectConfig($pid, $cfg): array {
+        $this->setProjectSetting('automation_mode', $cfg['automation_mode'] ?? 'queued', $pid);
+        $this->setProjectSetting('server_output_path', $cfg['server_output_path'] ?? '', $pid);
+        $this->setProjectSetting('file_repo_templates_folder', $cfg['file_repo_templates_folder'] ?? 'MailMerge Templates', $pid);
+        $this->setProjectSetting('file_repo_letters_folder', $cfg['file_repo_letters_folder'] ?? 'MailMerge Letters', $pid);
+        return ['success' => true];
+    }
+
     public function handleTemplateUploads($pid, $files): array {
         if (empty($files)) return ['success' => false, 'error' => 'No files provided'];
         $uploaded = [];
         $errors = [];
+        $tmplFolder = $this->getProjectSetting('file_repo_templates_folder', $pid) ?: 'MailMerge Templates';
 
         foreach ($files as $f) {
             $name = basename($f['name']);
@@ -105,7 +126,7 @@ class MailMerge extends AbstractExternalModule {
                 continue;
             }
 
-            $this->addToFileRepoFolder($docId, $pid, "Mail Merge Template: " . $name);
+            $this->addToFileRepoFolder($docId, $pid, "Mail Merge Template: " . $name, $tmplFolder);
 
             $item = [
                 'doc_id' => $docId,
@@ -264,12 +285,29 @@ class MailMerge extends AbstractExternalModule {
         if (!$ok || !file_exists($outPath))
             return ['success' => false, 'error' => 'Word document merge failed'];
 
+        $scheme = trim($rule['filename_scheme'] ?? '') ?: '{record}_{letter_name}';
+        $cleanTitle = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $rule['title']);
+        $filename = str_replace(
+            ['{record}', '{letter_name}', '{date}', '{timestamp}'],
+            [$recordId, $cleanTitle, date('Y-m-d'), date('Ymd_His')],
+            $scheme
+        );
+        $filename = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $filename);
+        if (!str_ends_with(strtolower($filename), '.docx')) $filename .= '.docx';
+
+        $autoMode = $this->getProjectSetting('automation_mode', $pid) ?: 'queued';
+        $serverPath = trim((string)$this->getProjectSetting('server_output_path', $pid));
+        if ($autoMode === 'server_path' && $serverPath !== '') {
+            @mkdir($serverPath, 0775, true);
+            copy($outPath, rtrim($serverPath, '/\\') . DIRECTORY_SEPARATOR . $filename);
+        }
+
         $outDocId = $this->saveFile($outPath, $pid);
         @unlink($outPath);
         if (!$outDocId) return ['success' => false, 'error' => 'Failed to store generated letter'];
 
-        $filename = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $rule['title']) . "_{$recordId}_" . date('Ymd_His') . '.docx';
-        $this->addToFileRepoFolder($outDocId, $pid, "Generated Letter: {$filename}");
+        $letterFolder = $this->getProjectSetting('file_repo_letters_folder', $pid) ?: 'MailMerge Letters';
+        $this->addToFileRepoFolder($outDocId, $pid, "Generated Letter: {$filename}", $letterFolder);
 
         if (!$isTest && !empty($rule['flag_field'])) {
             $flagField = trim($rule['flag_field']);
@@ -296,6 +334,8 @@ class MailMerge extends AbstractExternalModule {
         $pids = $this->getProjectsWithModuleEnabled();
         $total = 0;
         foreach ($pids as $pid) {
+            $mode = $this->getProjectSetting('automation_mode', $pid) ?: 'queued';
+            if ($mode === 'queued') continue;
             $queue = $this->evaluateQueue($pid);
             if (empty($queue)) continue;
             $res = $this->generateLetters($pid, $queue);

@@ -10,6 +10,13 @@
       "institution": "UW Madison - Center for Tobacco Research and Intervention"
     }
   ],
+  "system-settings": [
+    {
+      "key": "allow_server_path_output",
+      "name": "Allow generated letters to be saved to a local server filesystem path",
+      "type": "checkbox"
+    }
+  ],
   "links": {
     "project": [
       {
@@ -26,6 +33,8 @@
     "deleteTemplate",
     "saveLetterRules",
     "getLetterRules",
+    "saveSettings",
+    "getSettings",
     "evaluateQueue",
     "generateLetters",
     "testMerge"

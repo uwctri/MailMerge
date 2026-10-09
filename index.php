@@ -36,6 +36,8 @@ if ($isLongitudinal) {
 
 $templates = $module->getTemplates($projectId);
 $rules = $module->getLetterRules($projectId);
+$settings = $module->getProjectConfig($projectId);
+$allowServerPath = (bool)$module->getSystemSetting('allow_server_path_output');
 $alpineUrl = $module->getUrl('alpine.min.js');
 ?>
 <script src="<?= htmlspecialchars($alpineUrl, ENT_QUOTES) ?>" defer></script>
@@ -68,6 +70,34 @@ $alpineUrl = $module->getUrl('alpine.min.js');
     border-bottom: 2px solid #0d6efd;
     background: transparent;
 }
+.hover-tip {
+    position: absolute;
+    bottom: 130%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #212529;
+    color: #fff;
+    padding: 0.45rem 0.65rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    white-space: normal;
+    width: 260px;
+    z-index: 1060;
+    pointer-events: none;
+    text-align: left;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
+}
+.hover-tip::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #212529 transparent transparent transparent;
+}
 </style>
 
 <div class="ps-2 pe-3 py-3 w-100" x-data="mailMergeApp()">
@@ -99,9 +129,9 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 
             <!-- Configuration Tab Actions -->
             <template x-if="activeTab === 'config'">
-                <button type="button" class="btn btn-success btn-sm px-3 shadow-sm fw-bold" @click="saveRules()" :disabled="saving">
+                <button type="button" class="btn btn-success btn-sm px-3 shadow-sm fw-bold" @click="saveAllConfiguration()" :disabled="saving">
                     <i class="fas me-1" :class="saving ? 'fa-spinner fa-spin' : 'fa-save'"></i>
-                    <span x-text="saving ? 'Saving...' : 'Save All Rules'"></span>
+                    <span x-text="saving ? 'Saving...' : 'Save Configuration'"></span>
                 </button>
             </template>
         </div>
@@ -183,12 +213,26 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                         </tbody>
                     </table>
                 </div>
-                <div x-show="queue.length === 0 && !loadingQueue" class="text-center py-5 text-muted">
+
+                <!-- Empty State 1: No rules configured yet -->
+                <div x-show="rules.length === 0 && !loadingQueue" class="d-flex flex-column align-items-center justify-content-center text-center py-5 w-100">
+                    <i class="fas fa-sliders-h fa-3x text-muted mb-3 opacity-50"></i>
+                    <h5 class="fw-bold text-dark">No Letter Rules Configured</h5>
+                    <p class="small text-muted mb-3" style="max-width: 420px;">You have not created any letter rules yet. Head to the Configuration tab to define rules and triggers.</p>
+                    <button type="button" class="btn btn-primary btn-sm" @click="activeTab = 'config'">
+                        <i class="fas fa-cogs me-1"></i> Go to Configuration
+                    </button>
+                </div>
+
+                <!-- Empty State 2: Rules exist but no records qualify -->
+                <div x-show="rules.length > 0 && queue.length === 0 && !loadingQueue" class="d-flex flex-column align-items-center justify-content-center text-center py-5 w-100">
                     <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
-                    <h6 class="fw-bold text-dark">All caught up!</h6>
+                    <h5 class="fw-bold text-dark">All caught up!</h5>
                     <p class="small text-muted mb-0">No participants currently qualify for letters.</p>
                 </div>
-                <div x-show="loadingQueue" class="text-center py-5 text-muted">
+
+                <!-- Loading State -->
+                <div x-show="loadingQueue" class="d-flex flex-column align-items-center justify-content-center text-center py-5 w-100">
                     <i class="fas fa-spinner fa-spin fa-2x mb-2 text-primary"></i>
                     <p class="small text-muted mb-0">Evaluating letter rules against study records...</p>
                 </div>
@@ -200,21 +244,27 @@ $alpineUrl = $module->getUrl('alpine.min.js');
     <div x-show="activeTab === 'templates'">
         <div class="card shadow-sm border-0 mb-4">
             <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
-                <h5 class="mb-0 fw-bold text-primary"><i class="fas fa-file-word me-2"></i>Uploaded Templates</h5>
+                <h5 class="mb-0 fw-bold text-primary"><i class="fas fa-file-word me-2"></i>Template Library</h5>
                 <span class="badge bg-light text-dark border" x-text="templates.length + ' Templates'"></span>
             </div>
             <div class="card-body">
-                <!-- Compact Drag & Drop Area -->
-                <div class="drop-zone rounded-3 py-2 px-3 text-center mb-3 d-flex align-items-center justify-content-center gap-2"
+                <!-- Large Dedicated Drag & Drop Area -->
+                <div class="drop-zone rounded-3 py-5 px-4 text-center mb-4"
                      :class="{ 'dragover': isDragging }"
                      @dragover.prevent="isDragging = true"
                      @dragleave.prevent="isDragging = false"
                      @drop.prevent="handleDrop($event)"
                      @click="$refs.fileInput.click()">
                     <input type="file" x-ref="fileInput" class="d-none" multiple accept=".docx" @change="handleFileSelect($event)">
-                    <i class="fas fa-cloud-upload-alt text-primary fa-lg"></i>
-                    <span class="small fw-semibold text-dark">Drag & drop Word (.docx) templates here, or <span class="text-primary text-decoration-underline">browse files</span></span>
-                    <span class="badge bg-light text-muted border small ms-2">Files saved to File Repository "MailMerge" folder</span>
+                    <div class="mb-3">
+                        <i class="fas fa-cloud-upload-alt text-primary" style="font-size: 3.5rem;"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-1">Drag and drop Word (.docx) templates here</h5>
+                    <p class="text-muted small mb-3">or <span class="text-primary text-decoration-underline fw-semibold">click to browse</span> from your computer</p>
+                    <div class="d-flex justify-content-center flex-wrap gap-2">
+                        <span class="badge bg-light text-muted border px-2 py-1 small">Supports uploading multiple templates simultaneously</span>
+                        <span class="badge bg-light text-muted border px-2 py-1 small">Extracts merge tags automatically</span>
+                    </div>
                 </div>
 
                 <!-- Upload Queue -->
@@ -286,6 +336,77 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 
     <!-- TAB 3: CONFIGURATION -->
     <div x-show="activeTab === 'config'">
+        <!-- Automation & Delivery Section -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-robot me-2 text-primary"></i>Automation & Storage Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold d-flex align-items-center">
+                            Delivery & Automation Mode
+                            <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
+                                <i class="fas fa-info-circle text-muted cursor-pointer"></i>
+                                <div x-show="tip" x-transition class="hover-tip">
+                                    Determines how due letters are processed by the daily automated cron. Hold in Queue allows manual staff generation, while other options generate letters automatically.
+                                </div>
+                            </span>
+                        </label>
+                        <select class="form-select form-select-sm" x-model="settings.automation_mode">
+                            <option value="queued">Hold in Queue (Manual Staff Review & Generation)</option>
+                            <option value="filerepo">Automated: Generate & Save to File Repository</option>
+                            <template x-if="allowServerPath">
+                                <option value="server_path">Automated: Generate & Save to Local Server Path</option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <template x-if="allowServerPath && settings.automation_mode === 'server_path'">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold d-flex align-items-center">
+                                Server Directory Output Path
+                                <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
+                                    <i class="fas fa-info-circle text-muted cursor-pointer"></i>
+                                    <div x-show="tip" x-transition class="hover-tip">
+                                        Absolute path on the server filesystem or network share where generated letters will be saved.
+                                    </div>
+                                </span>
+                            </label>
+                            <input type="text" class="form-control form-control-sm font-monospace" x-model="settings.server_output_path" placeholder="e.g. /mnt/letters or C:\Letters">
+                        </div>
+                    </template>
+
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold d-flex align-items-center">
+                            File Repository Templates Folder
+                            <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
+                                <i class="fas fa-info-circle text-muted cursor-pointer"></i>
+                                <div x-show="tip" x-transition class="hover-tip">
+                                    Folder name in the project's File Repository where uploaded Word templates will be organized.
+                                </div>
+                            </span>
+                        </label>
+                        <input type="text" class="form-control form-control-sm" x-model="settings.file_repo_templates_folder" placeholder="e.g. MailMerge Templates">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold d-flex align-items-center">
+                            File Repository Generated Letters Folder
+                            <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
+                                <i class="fas fa-info-circle text-muted cursor-pointer"></i>
+                                <div x-show="tip" x-transition class="hover-tip">
+                                    Folder name in the project's File Repository where generated letters will be archived.
+                                </div>
+                            </span>
+                        </label>
+                        <input type="text" class="form-control form-control-sm" x-model="settings.file_repo_letters_folder" placeholder="e.g. MailMerge Letters">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rules & Logic Section -->
         <div class="card shadow-sm border-0 mb-4">
             <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
                 <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-cogs me-2"></i>Letter Rules & Logic</h5>
@@ -327,7 +448,12 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                             <div class="col-md-4">
                                 <label class="form-label small fw-bold d-flex align-items-center">
                                     Target Event
-                                    <i class="fas fa-info-circle text-muted ms-1" title="In longitudinal studies, specifies the event context to evaluate trigger logic against and store the flag field."></i>
+                                    <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
+                                        <i class="fas fa-info-circle text-muted cursor-pointer"></i>
+                                        <div x-show="tip" x-transition class="hover-tip">
+                                            In longitudinal studies, specifies the event context to evaluate trigger logic against and store the flag field.
+                                        </div>
+                                    </span>
                                 </label>
                                 <select class="form-select form-select-sm" x-model="r.event_id">
                                     <option value="">-- All / Primary Event --</option>
@@ -341,12 +467,30 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                             <div class="col-md-4">
                                 <label class="form-label small fw-bold d-flex align-items-center">
                                     Flag Field
-                                    <i class="fas fa-info-circle text-muted ms-1" title="A field updated when the letter is generated so it won't be generated again. If a date or datetime field is selected, it will be set to the current date/time. Otherwise, it will be set to 1."></i>
+                                    <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
+                                        <i class="fas fa-info-circle text-muted cursor-pointer"></i>
+                                        <div x-show="tip" x-transition class="hover-tip">
+                                            A field updated when the letter is generated so it won't be generated again. If a date or datetime field is selected, it will be set to the current date/time. Otherwise, it will be set to 1.
+                                        </div>
+                                    </span>
                                 </label>
                                 <input type="text" class="form-control form-control-sm" list="fieldsList" x-model="r.flag_field" placeholder="e.g. letter_generated or ltr_sent_dt">
                             </div>
 
-                            <div class="col-md-12">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold d-flex align-items-center">
+                                    File Naming Scheme
+                                    <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
+                                        <i class="fas fa-info-circle text-muted cursor-pointer"></i>
+                                        <div x-show="tip" x-transition class="hover-tip">
+                                            Naming pattern for generated Word files. Available tags: {record}, {letter_name}, {date}, {timestamp}. Default: {record}_{letter_name}
+                                        </div>
+                                    </span>
+                                </label>
+                                <input type="text" class="form-control form-control-sm font-monospace" x-model="r.filename_scheme" placeholder="{record}_{letter_name}">
+                            </div>
+
+                            <div class="col-md-6">
                                 <label class="form-label small fw-bold">Trigger Condition (REDCap Logic)</label>
                                 <input type="text" class="form-control form-control-sm font-monospace" x-model="r.condition" placeholder="e.g. [study_status] = '1' and [appt_date] != '' and datediff('today', [appt_date], 'd') <= 10">
                             </div>
@@ -415,6 +559,8 @@ function mailMergeApp() {
         activeTab: 'queue',
         templates: <?= json_encode($templates) ?>,
         rules: <?= json_encode($rules) ?>,
+        settings: <?= json_encode($settings) ?>,
+        allowServerPath: <?= json_encode($allowServerPath) ?>,
         events: <?= json_encode($events) ?>,
         queue: [],
         selected: [],
@@ -461,7 +607,7 @@ function mailMergeApp() {
             try {
                 const res = await jsmObj.ajax('generateLetters', { items: items });
                 if (res.success) {
-                    this.showAlert(`Successfully generated ${res.generated} letter(s) and saved to File Repository "MailMerge" folder.`, 'success');
+                    this.showAlert(`Successfully generated ${res.generated} letter(s).`, 'success');
                     await this.loadQueue();
                 } else {
                     this.showAlert(res.error || 'Generation failed', 'danger');
@@ -478,7 +624,7 @@ function mailMergeApp() {
             try {
                 const res = await jsmObj.ajax('generateLetters', { items: [item] });
                 if (res.success) {
-                    this.showAlert(`Generated letter for record ${item.record_id} and saved to File Repository "MailMerge" folder.`, 'success');
+                    this.showAlert(`Generated letter for record ${item.record_id}.`, 'success');
                     await this.loadQueue();
                 } else {
                     this.showAlert(res.error || 'Generation failed', 'danger');
@@ -536,7 +682,7 @@ function mailMergeApp() {
                         const qItem = this.uploadQueue.find(item => item.name === u.name);
                         if (qItem) qItem.status = 'done';
                     });
-                    this.showAlert(`Successfully uploaded ${data.uploaded.length} template(s) to File Repository "MailMerge" folder`, 'success');
+                    this.showAlert(`Successfully uploaded ${data.uploaded.length} template(s)`, 'success');
                 } else {
                     this.showAlert(data.error || 'Failed to upload templates', 'danger');
                 }
@@ -569,6 +715,7 @@ function mailMergeApp() {
                 template_doc_id: 0,
                 event_id: '',
                 flag_field: 'letter_generated',
+                filename_scheme: '{record}_{letter_name}',
                 condition: '',
                 mappings: []
             });
@@ -597,15 +744,17 @@ function mailMergeApp() {
             rule.mappings.push({ tag: '', source: '' });
         },
 
-        async saveRules() {
+        async saveAllConfiguration() {
             this.saving = true;
             try {
-                const res = await jsmObj.ajax('saveLetterRules', { rules: this.rules });
-                if (res.success) {
-                    this.showAlert('Letter rules saved successfully', 'success');
+                const resRules = await jsmObj.ajax('saveLetterRules', { rules: this.rules });
+                const resSettings = await jsmObj.ajax('saveSettings', { settings: this.settings });
+
+                if (resRules.success && resSettings.success) {
+                    this.showAlert('Configuration and rules saved successfully', 'success');
                     await this.loadQueue();
                 } else {
-                    this.showAlert(res.error || 'Failed to save rules', 'danger');
+                    this.showAlert((resRules.error || resSettings.error) || 'Failed to save configuration', 'danger');
                 }
             } catch (e) {
                 this.showAlert('Save failed: ' + e.message, 'danger');
