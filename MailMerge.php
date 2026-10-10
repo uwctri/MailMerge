@@ -112,6 +112,7 @@ class MailMerge extends AbstractExternalModule
         if ($action === 'generateLetters') return $this->generateLetters($project_id, $payload['items']);
         if ($action === 'resolveLetters') return $this->resolveLetters($project_id, $payload['items']);
         if ($action === 'generateAndResolveLetters') return $this->generateAndResolveLetters($project_id, $payload['items']);
+        if ($action === 'unresolveLetter') return $this->unresolveLetter($project_id, $payload['record_id'], $payload['rule_id']);
         if ($action === 'getArchive') return ['success' => true, 'archive' => $this->getArchive($project_id)];
         if ($action === 'testMerge') return $this->testMerge($project_id, $payload['rule_id'], $payload['record_id']);
 
@@ -406,9 +407,15 @@ class MailMerge extends AbstractExternalModule
 
             $resolvedRecords = [];
             if ($completionField === '') {
-                $logRes = $this->queryLogs("SELECT record WHERE message = 'Marked letter resolved' AND rule_id = ?", [$rule['id']]);
-                while ($r = $logRes->fetch_assoc())
-                    if (!empty($r['record'])) $resolvedRecords[$r['record']] = true;
+                $logRes = $this->queryLogs("SELECT record, message WHERE (message = 'Marked letter resolved' OR message = 'Returned letter to queue') AND rule_id = ? ORDER BY timestamp ASC", [$rule['id']]);
+                while ($r = $logRes->fetch_assoc()) {
+                    if (empty($r['record'])) continue;
+                    if ($r['message'] === 'Marked letter resolved') {
+                        $resolvedRecords[$r['record']] = true;
+                    } else if ($r['message'] === 'Returned letter to queue') {
+                        unset($resolvedRecords[$r['record']]);
+                    }
+                }
             }
 
             $generatedRecords = [];
@@ -684,6 +691,45 @@ class MailMerge extends AbstractExternalModule
         return ['success' => true, 'resolved' => $resolved];
     }
 
+    public function unresolveLetter($pid, $recordId, $ruleId): array
+    {
+        if (!$recordId || !$ruleId) return ['success' => false, 'error' => 'Missing record or rule'];
+
+        $rules = [];
+        foreach ($this->getLetterRules($pid) as $r)
+            $rules[$r['id']] = $r;
+
+        $rule = $rules[$ruleId] ?? null;
+        if (!$rule) return ['success' => false, 'error' => 'Rule not found'];
+
+        $eventId = $rule['event_id'] ?: null;
+        $fieldsToReset = [];
+        if (!empty($rule['printed_flag_field'])) $fieldsToReset[] = trim($rule['printed_flag_field']);
+        if (!empty($rule['flag_field'])) $fieldsToReset[] = trim($rule['flag_field']);
+        $fieldsToReset = array_unique($fieldsToReset);
+
+        if (!empty($fieldsToReset)) {
+            $eventName = $eventId ? REDCap::getEventNames(true, false, $eventId) : null;
+            $saveData = ['record_id' => $recordId];
+            if ($eventName) $saveData['redcap_event_name'] = $eventName;
+            foreach ($fieldsToReset as $f) {
+                $saveData[$f] = '';
+            }
+            REDCap::saveData($pid, 'json', json_encode([$saveData]));
+        }
+
+        $username = defined('USERID') ? USERID : 'System';
+        $this->log('Returned letter to queue', [
+            'project_id' => $pid,
+            'record' => $recordId,
+            'rule_id' => $rule['id'],
+            'rule_title' => $rule['title'],
+            'username' => $username,
+        ]);
+
+        return ['success' => true];
+    }
+
     public function generateAndResolveLetters($pid, $items): array
     {
         $genRes = $this->generateLetters($pid, $items);
@@ -730,6 +776,15 @@ class MailMerge extends AbstractExternalModule
                 $validDocs[(int)$dRow['doc_id']] = true;
         }
 
+        // Calculate version numbers (v1, v2, ...) based on chronological generation per record and rule
+        $versionTotals = [];
+        // Walk chronologically (oldest first) to count up versions
+        for ($i = count($rows) - 1; $i >= 0; $i--) {
+            $key = ($rows[$i]['record'] ?? '') . '_' . ($rows[$i]['rule_id'] ?? '');
+            $versionTotals[$key] = ($versionTotals[$key] ?? 0) + 1;
+            $rows[$i]['version'] = 'v' . $versionTotals[$key];
+        }
+
         $archive = [];
         foreach ($rows as $r) {
             $docId = (int)($r['doc_id'] ?? 0);
@@ -748,6 +803,7 @@ class MailMerge extends AbstractExternalModule
                 'username' => $username,
                 'timestamp' => $r['timestamp'],
                 'formatted_date' => date('M j, Y g:i A', strtotime($r['timestamp'])),
+                'version' => $r['version'] ?? 'v1',
             ];
         }
 

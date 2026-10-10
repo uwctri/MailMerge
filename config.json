@@ -39,6 +39,7 @@
     "generateLetters",
     "resolveLetters",
     "generateAndResolveLetters",
+    "unresolveLetter",
     "getArchive",
     "testMerge"
   ],

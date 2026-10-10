@@ -532,7 +532,10 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                         <tr>
                                             <td class="fw-bold text-primary" x-text="item.record"></td>
                                             <td>
-                                                <span class="badge bg-light text-dark border" x-text="item.rule_title"></span>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="badge bg-light text-dark border" x-text="item.rule_title"></span>
+                                                    <span class="badge bg-secondary" x-text="item.version" :title="'Generation ' + item.version"></span>
+                                                </div>
                                             </td>
                                             <td class="small text-muted" x-text="item.formatted_date"></td>
                                             <td>
@@ -556,6 +559,9 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                                     </template>
                                                     <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" title="Re-generate Letter" @click="regenerateFromArchive(item)" :disabled="generating">
                                                         <i class="fas fa-sync-alt"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-warning text-dark btn-sm py-1 px-2" title="Return to Queue" @click="confirmReturnToQueue(item)" :disabled="generating">
+                                                        <i class="fas fa-undo"></i>
                                                     </button>
                                                 </div>
                                             </td>
@@ -1343,6 +1349,15 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                     });
                     if (res.success) {
                         this.showAlert(`Re-generated letter for record ${item.record}.`, 'success');
+                        const fileInfo = (res.files && res.files[0]) ? res.files[0] : null;
+                        if (fileInfo && fileInfo.download_url) {
+                            const a = document.createElement('a');
+                            a.href = fileInfo.download_url;
+                            a.download = fileInfo.filename || 'letter.docx';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                        }
                         await this.loadArchive();
                         await this.loadQueue();
                     } else {
@@ -1350,6 +1365,35 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                     }
                 } catch (e) {
                     this.showAlert('Re-generation failed: ' + e.message, 'danger');
+                } finally {
+                    this.generating = false;
+                }
+            },
+
+            confirmReturnToQueue(item) {
+                this.confirmModal = {
+                    show: true,
+                    title: 'Return Letter to Queue',
+                    message: `Are you sure you want to return the letter "${item.rule_title}" for record ${item.record} back to the active queue? This will clear its resolved status.`,
+                    action: () => this.returnToQueue(item)
+                };
+            },
+
+            async returnToQueue(item) {
+                this.generating = true;
+                try {
+                    const res = await jsmObj.ajax('unresolveLetter', {
+                        record_id: item.record,
+                        rule_id: item.rule_id
+                    });
+                    if (res.success) {
+                        this.showAlert(`Returned letter for record ${item.record} to the queue.`, 'success');
+                        await this.loadQueue();
+                    } else {
+                        this.showAlert(res.error || 'Failed to return to queue', 'danger');
+                    }
+                } catch (e) {
+                    this.showAlert('Failed to return to queue: ' + e.message, 'danger');
                 } finally {
                     this.generating = false;
                 }

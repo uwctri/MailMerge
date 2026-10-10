@@ -66,26 +66,48 @@ class DocxEngine
 
     private static function replaceXmlPlaceholders($xml, $data): string
     {
+        // 1. Handle w:fldSimple MERGEFIELDs: preserve run formatting if present
         $xml = preg_replace_callback(
-            '/<w:fldSimple[^>]+w:instr=["\'][^"\']*MERGEFIELD\s+([^\s"\'\\]+)[^"\']*["\'][^>]*>.*?<\/w:fldSimple>/is',
+            '/<w:fldSimple[^>]+w:instr=["\'][^"\']*MERGEFIELD\s+([^\s"\'\\]+)[^"\']*["\'][^>]*>(.*?)<\/w:fldSimple>/is',
             function ($m) use ($data) {
-                $val = htmlspecialchars($data[trim($m[1])] ?? '', ENT_XML1, 'UTF-8');
-                return "<w:r><w:t>{$val}</w:t></w:r>";
+                $tag = trim($m[1]);
+                $inner = $m[2];
+                $val = htmlspecialchars($data[$tag] ?? '', ENT_XML1, 'UTF-8');
+
+                // Extract run properties (<w:rPr>...</w:rPr>) from the inner content if present
+                $rPr = '';
+                if (preg_match('/<w:rPr>.*?<\/w:rPr>/is', $inner, $pMatch)) {
+                    $rPr = $pMatch[0];
+                }
+                return "<w:r>{$rPr}<w:t xml:space=\"preserve\">{$val}</w:t></w:r>";
             },
             $xml
         );
 
-        foreach ($data as $key => $val) {
-            $cleanVal = htmlspecialchars((string)$val, ENT_XML1, 'UTF-8');
-            $patterns = [
-                '/(?:«|&laquo;)' . preg_quote($key, '/') . '(?:»|&raquo;)/u',
-                '/\{\{' . preg_quote($key, '/') . '\}\}/u',
-                '/\{' . preg_quote($key, '/') . '\}/u',
-                '/\[' . preg_quote($key, '/') . '\]/u',
-            ];
-            foreach ($patterns as $pattern)
-                $xml = preg_replace($pattern, $cleanVal, $xml);
-        }
+        // 2. Safely replace variables inside text nodes (<w:t>...</w:t>)
+        $xml = preg_replace_callback('/<w:t(\b[^>]*)>(.*?)<\/w:t>/is', function ($tMatch) use ($data) {
+            $attrs = $tMatch[1];
+            $text = $tMatch[2];
+
+            foreach ($data as $key => $val) {
+                $cleanVal = htmlspecialchars((string)$val, ENT_XML1, 'UTF-8');
+                $patterns = [
+                    '/(?:«|&laquo;)' . preg_quote($key, '/') . '(?:»|&raquo;)/u',
+                    '/\{\{' . preg_quote($key, '/') . '\}\}/u',
+                    '/\{' . preg_quote($key, '/') . '\}/u',
+                    '/\[' . preg_quote($key, '/') . '\]/u',
+                ];
+                foreach ($patterns as $pattern) {
+                    $text = preg_replace($pattern, $cleanVal, $text);
+                }
+            }
+
+            if (!str_contains($attrs, 'xml:space')) {
+                $attrs .= ' xml:space="preserve"';
+            }
+
+            return "<w:t{$attrs}>{$text}</w:t>";
+        }, $xml);
 
         return $xml;
     }

@@ -29,13 +29,20 @@ if (!$tmp || !file_exists($tmp)) {
 }
 
 $filename = $doc['doc_name'] ?: 'letter.docx';
-$mime = $doc['mime_type'] ?: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+$mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+// Ensure no previous output buffering pollutes the file download
+while (ob_get_level()) {
+    ob_end_clean();
+}
 
 header("Content-Type: $mime");
-header("Content-Disposition: attachment; filename=\"" . addslashes($filename) . "\"");
+header("Content-Disposition: attachment; filename=\"" . str_replace('"', '', $filename) . "\"");
 header("Content-Length: " . filesize($tmp));
+header("Content-Transfer-Encoding: binary");
 header("Cache-Control: private, no-cache, must-revalidate");
 header("Pragma: no-cache");
+header("Expires: 0");
 
 readfile($tmp);
 @unlink($tmp);
