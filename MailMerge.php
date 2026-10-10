@@ -234,7 +234,7 @@ class MailMerge extends AbstractExternalModule {
         return $val;
     }
 
-    public function resolveMappingSource(string $source, $recordId, $eventId, $pid, array $recordData): string {
+    public function resolveMappingSource(string $source, $recordId, $eventId, $pid, array $recordData, array $allRecordEvents = []): string {
         $clean = trim($source);
         $lower = strtolower($clean);
         $stripped = trim($lower, '[]{}');
@@ -262,16 +262,46 @@ class MailMerge extends AbstractExternalModule {
         if (str_starts_with($expr, '@')) $expr = substr($expr, 1);
         if (preg_match('/^if\s*\(.+/i', $expr)) {
             $eval = REDCap::evaluateLogic($expr, $pid, $recordId, $eventId, 1, "", "", null, true);
+            if (($eval === null || $eval === false || $eval === '') && !empty($allRecordEvents)) {
+                $uniqueEvents = REDCap::isLongitudinal() ? REDCap::getEventNames(true, false) : [];
+                $prefixedExpr = preg_replace_callback('/(?<!\])\[([a-zA-Z0-9_\-]+)\]/', function($m) use ($eventId, $recordData, $allRecordEvents, $uniqueEvents) {
+                    $f = $m[1];
+                    if (!isset($recordData[$f]) || (string)$recordData[$f] === '') {
+                        foreach ($allRecordEvents as $evId => $evRow) {
+                            if ($evId != $eventId && isset($evRow[$f]) && (string)$evRow[$f] !== '') {
+                                $uName = $uniqueEvents[$evId] ?? '';
+                                if ($uName !== '') return '[' . $uName . '][' . $f . ']';
+                            }
+                        }
+                    }
+                    return $m[0];
+                }, $expr);
+
+                if ($prefixedExpr !== $expr) {
+                    $eval = REDCap::evaluateLogic($prefixedExpr, $pid, $recordId, $eventId, 1, "", "", null, true);
+                }
+            }
             if ($eval !== null && $eval !== false) return (string)$eval;
         }
 
         // Support [field:format] and [field]:format syntax within expressions
         if (str_contains($clean, '[')) {
-            $clean = preg_replace_callback('/\[([a-zA-Z0-9_\-]+)(?::([^\]]+))?\](?::([a-zA-Z0-9_\/:\s\-]+))?/', function($m) use ($recordId, $eventId, $pid, $recordData) {
+            $clean = preg_replace_callback('/\[([a-zA-Z0-9_\-]+)(?::([^\]]+))?\](?::([a-zA-Z0-9_\/:\s\-]+))?/', function($m) use ($recordId, $eventId, $pid, $recordData, $allRecordEvents) {
                 $fName = $m[1];
                 $format = !empty($m[2]) ? $m[2] : (!empty($m[3]) ? $m[3] : '');
                 $pipedVal = Piping::replaceVariablesInLabel('[' . $fName . ']', $recordId, $eventId, 1, [], false, $pid, false);
                 $rawVal = ($pipedVal !== '' && $pipedVal !== false) ? $pipedVal : ($recordData[$fName] ?? '');
+
+                if ((string)$rawVal === '' && !empty($allRecordEvents)) {
+                    foreach ($allRecordEvents as $evId => $evRow) {
+                        if ($evId == $eventId) continue;
+                        if (isset($evRow[$fName]) && !is_array($evRow[$fName]) && (string)$evRow[$fName] !== '') {
+                            $rawVal = (string)$evRow[$fName];
+                            break;
+                        }
+                    }
+                }
+
                 if ($format !== '') return $this->formatValue((string)$rawVal, $format);
                 return (string)$rawVal;
             }, $clean);
@@ -283,6 +313,15 @@ class MailMerge extends AbstractExternalModule {
         if (isset($recordData[$clean]) && !is_array($recordData[$clean]))
             return (string)$recordData[$clean];
 
+        if (!empty($allRecordEvents)) {
+            foreach ($allRecordEvents as $evId => $evRow) {
+                if ($evId == $eventId) continue;
+                if (isset($evRow[$clean]) && !is_array($evRow[$clean]) && (string)$evRow[$clean] !== '') {
+                    return (string)$evRow[$clean];
+                }
+            }
+        }
+
         return $clean;
     }
 
@@ -293,7 +332,15 @@ class MailMerge extends AbstractExternalModule {
         $allData = REDCap::getData($pid, 'array');
         if (empty($allData)) return [];
 
-        $eventNames = REDCap::isLongitudinal() ? REDCap::getEventNames(true, false) : [];
+        $isLongitudinal = REDCap::isLongitudinal();
+        $eventNames = $isLongitudinal ? REDCap::getEventNames(true, false) : [];
+        $numArms = 1;
+        if ($isLongitudinal) {
+            global $Proj;
+            $p = (isset($Proj) && $Proj->project_id == $pid) ? $Proj : new \Project($pid);
+            $numArms = $p->numArms ?? count($p->events ?? [1]);
+        }
+
         $queue = [];
         foreach ($rules as $rule) {
             if (empty($rule['enabled'])) continue;
@@ -325,6 +372,21 @@ class MailMerge extends AbstractExternalModule {
                 }
 
                 $eventName = !empty($eventNames[$primaryEvent]) ? $eventNames[$primaryEvent] : 'Default';
+                if ($numArms <= 1) {
+                    $eventName = preg_replace('/_arm_\d+$/i', '', $eventName);
+                }
+
+                $recipientName = trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? ''));
+                if ($recipientName === '') {
+                    foreach ($recordEvents as $eRow) {
+                        $candidate = trim(($eRow['first_name'] ?? '') . ' ' . ($eRow['last_name'] ?? ''));
+                        if ($candidate !== '') {
+                            $recipientName = $candidate;
+                            break;
+                        }
+                    }
+                }
+                $recipient = $recipientName ?: $recordId;
 
                 $queue[] = [
                     'rule_id' => $rule['id'],
@@ -333,7 +395,7 @@ class MailMerge extends AbstractExternalModule {
                     'record_id' => $recordId,
                     'event_id' => $primaryEvent,
                     'event_name' => $eventName,
-                    'recipient' => trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? '')) ?: $recordId,
+                    'recipient' => $recipient,
                 ];
             }
         }
@@ -387,7 +449,9 @@ class MailMerge extends AbstractExternalModule {
 
         $eventId = $rule['event_id'] ?: null;
         $data = REDCap::getData($pid, 'array', $recordId);
-        $recordData = $data[$recordId][$eventId ?: array_key_first($data[$recordId] ?? [])] ?? [];
+        $allRecordEvents = $data[$recordId] ?? [];
+        $primaryEvent = $eventId ?: array_key_first($allRecordEvents);
+        $recordData = $allRecordEvents[$primaryEvent] ?? [];
 
         $mergePayload = [
             'record_id' => $recordId,
@@ -395,14 +459,26 @@ class MailMerge extends AbstractExternalModule {
             'today_date' => date('F j, Y'),
         ];
 
-        foreach ($recordData as $f => $v)
-            if (!is_array($v)) $mergePayload[$f] = (string)$v;
+        foreach ($allRecordEvents as $evId => $evRow) {
+            if ($evId == $primaryEvent) continue;
+            foreach ($evRow as $f => $v) {
+                if (!is_array($v) && (string)$v !== '' && !isset($mergePayload[$f])) {
+                    $mergePayload[$f] = (string)$v;
+                }
+            }
+        }
+
+        foreach ($recordData as $f => $v) {
+            if (!is_array($v) && (string)$v !== '') {
+                $mergePayload[$f] = (string)$v;
+            }
+        }
 
         foreach ($rule['mappings'] ?: [] as $m) {
             $tag = trim($m['tag']);
             $source = trim($m['source']);
             if (!$tag || $source === '') continue;
-            $mergePayload[$tag] = $this->resolveMappingSource($source, $recordId, $eventId, $pid, $recordData);
+            $mergePayload[$tag] = $this->resolveMappingSource($source, $recordId, $primaryEvent, $pid, $recordData, $allRecordEvents);
         }
 
         $outPath = tempnam(sys_get_temp_dir(), 'ltr_') . '.docx';

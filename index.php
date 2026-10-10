@@ -30,8 +30,13 @@ $fields = REDCap::getFieldNames();
 $isLongitudinal = REDCap::isLongitudinal();
 $events = [];
 if ($isLongitudinal) {
-    foreach (REDCap::getEventNames(true, true) as $id => $name)
-        $events[] = ['id' => $id, 'name' => $name];
+    global $Proj;
+    $p = (isset($Proj) && $Proj->project_id == $projectId) ? $Proj : new \Project($projectId);
+    $numArms = $p->numArms ?? count($p->events ?? [1]);
+    foreach (REDCap::getEventNames(true, false) as $id => $name) {
+        $displayName = ($numArms <= 1) ? preg_replace('/_arm_\d+$/i', '', $name) : $name;
+        $events[] = ['id' => $id, 'name' => $displayName];
+    }
 }
 
 $templates = $module->getTemplates($projectId);
@@ -567,7 +572,8 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                     <div class="col-md-3">
                                         <div class="fw-semibold text-dark">Fields & Piping</div>
                                         <code>[field_name]</code> or <code>[event][field]</code><br>
-                                        Compound: <code>[first_name] [last_name]</code>
+                                        Compound: <code>[first_name] [last_name]</code><br>
+                                        <span class="text-success small"><i class="fas fa-check-circle me-1"></i>Auto cross-event fallback</span>
                                     </div>
                                     <div class="col-md-3">
                                         <div class="fw-semibold text-dark">Formatted Values (<code>:format</code>)</div>
