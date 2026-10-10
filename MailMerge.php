@@ -253,6 +253,39 @@ class MailMerge extends AbstractExternalModule
         return $val;
     }
 
+    public function evaluateCondition(string $cond, $pid, $recordId, $eventId = null, array $allRecordEvents = []): bool
+    {
+        $cleanCond = trim($cond);
+        if ($cleanCond === '') return true;
+
+        $isDue = REDCap::evaluateLogic($cleanCond, $pid, $recordId, $eventId);
+        if ($isDue) return true;
+
+        if (!empty($allRecordEvents)) {
+            $uniqueEvents = REDCap::isLongitudinal() ? REDCap::getEventNames(true, false) : [];
+            $prefixedCond = preg_replace_callback('/(?<!\])\[([a-zA-Z0-9_\-]+)\]/', function ($m) use ($eventId, $allRecordEvents, $uniqueEvents) {
+                $f = $m[1];
+                $currentVal = ($eventId && isset($allRecordEvents[$eventId][$f])) ? (string)$allRecordEvents[$eventId][$f] : '';
+                if ($currentVal === '') {
+                    foreach ($allRecordEvents as $evId => $evRow) {
+                        if ($evId != $eventId && isset($evRow[$f]) && (string)$evRow[$f] !== '') {
+                            $uName = $uniqueEvents[$evId] ?? '';
+                            if ($uName !== '') return '[' . $uName . '][' . $f . ']';
+                        }
+                    }
+                }
+                return $m[0];
+            }, $cleanCond);
+
+            if ($prefixedCond !== $cleanCond) {
+                $isDue = REDCap::evaluateLogic($prefixedCond, $pid, $recordId, $eventId);
+                if ($isDue) return true;
+            }
+        }
+
+        return false;
+    }
+
     public function resolveMappingSource(string $source, $recordId, $eventId, $pid, array $recordData, array $allRecordEvents = []): string
     {
         $clean = trim($source);
@@ -373,7 +406,7 @@ class MailMerge extends AbstractExternalModule
 
             $resolvedRecords = [];
             if ($completionField === '') {
-                $logRes = $this->queryLogs("SELECT record WHERE (message = 'Marked letter resolved' OR message = 'Generated letter') AND rule_id = ?", [$rule['id']]);
+                $logRes = $this->queryLogs("SELECT record WHERE message = 'Marked letter resolved' AND rule_id = ?", [$rule['id']]);
                 while ($r = $logRes->fetch_assoc())
                     if (!empty($r['record'])) $resolvedRecords[$r['record']] = true;
             }
@@ -387,7 +420,7 @@ class MailMerge extends AbstractExternalModule
 
             foreach ($allData as $recordId => $recordEvents) {
                 if ($cond !== '') {
-                    $isDue = REDCap::evaluateLogic($cond, $pid, $recordId, $eventId);
+                    $isDue = $this->evaluateCondition($cond, $pid, $recordId, $eventId, $recordEvents);
                     if (!$isDue) continue;
                 }
 
@@ -451,6 +484,7 @@ class MailMerge extends AbstractExternalModule
 
         $generated = 0;
         $errors = [];
+        $files = [];
 
         foreach ($items as $item) {
             $rule = $rules[$item['rule_id']] ?? null;
@@ -463,9 +497,16 @@ class MailMerge extends AbstractExternalModule
                 continue;
             }
             $generated++;
+            $files[] = [
+                'record_id' => $recordId,
+                'rule_id' => $rule['id'],
+                'doc_id' => $res['doc_id'],
+                'filename' => $res['filename'],
+                'download_url' => $this->getUrl('download.php') . '&doc_id=' . $res['doc_id'],
+            ];
         }
 
-        return ['success' => true, 'generated' => $generated, 'errors' => $errors];
+        return ['success' => true, 'generated' => $generated, 'files' => $files, 'errors' => $errors];
     }
 
     public function testMerge($pid, $ruleId, $recordId): array
@@ -542,9 +583,19 @@ class MailMerge extends AbstractExternalModule
             copy($outPath, rtrim($serverPath, '/\\') . DIRECTORY_SEPARATOR . $filename);
         }
 
-        $outDocId = $this->saveFile($outPath, $pid);
+        $tempNamedDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'mm_' . uniqid();
+        @mkdir($tempNamedDir, 0777, true);
+        $namedOutPath = $tempNamedDir . DIRECTORY_SEPARATOR . $filename;
+        copy($outPath, $namedOutPath);
+
+        $outDocId = $this->saveFile($namedOutPath, $pid);
+        @unlink($namedOutPath);
+        @rmdir($tempNamedDir);
         @unlink($outPath);
         if (!$outDocId) return ['success' => false, 'error' => 'Failed to store generated letter'];
+
+        // Ensure doc_name in edocs metadata matches final filename
+        $this->query("UPDATE redcap_edocs_metadata SET doc_name = ? WHERE doc_id = ? AND project_id = ?", [$filename, $outDocId, $pid]);
 
         $letterFolder = $this->getProjectSetting('file_repo_letters_folder', $pid) ?: 'MailMerge Letters/{date}';
         $this->addToFileRepoFolder($outDocId, $pid, "Generated Letter: {$filename}", $letterFolder, $recordId, $rule['title']);
@@ -642,6 +693,7 @@ class MailMerge extends AbstractExternalModule
             'success' => true,
             'generated' => $genRes['generated'],
             'resolved' => $resRes['resolved'],
+            'files' => $genRes['files'] ?? [],
             'errors' => $genRes['errors'] ?? [],
         ];
     }

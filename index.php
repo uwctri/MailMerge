@@ -239,9 +239,10 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 
             <!-- Configuration Tab Actions -->
             <template x-if="activeTab === 'config'">
-                <button type="button" class="btn btn-success btn-sm px-3 shadow-sm fw-bold" @click="saveAllConfiguration()" :disabled="saving">
+                <button type="button" class="btn btn-success btn-sm px-3 shadow-sm fw-bold d-inline-flex align-items-center justify-content-center" style="width: 88px;" @click="saveAllConfiguration()" :disabled="saving" title="Save Configuration">
                     <i class="fas me-1" :class="saving ? 'fa-spinner fa-spin' : 'fa-save'"></i>
-                    <span x-text="saving ? 'Saving...' : 'Save Configuration'"></span>
+                    <span>Save</span>
+                </button>
             </template>
         </div>
     </div>
@@ -346,11 +347,13 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 
                         <!-- Pagination Footer -->
                         <div class="d-flex align-items-center justify-content-between p-3 border-top bg-light flex-wrap gap-2">
-                            <div class="d-flex align-items-center gap-2 text-muted small">
+                            <div class="d-flex align-items-center gap-2 text-muted small flex-wrap">
                                 <span>Showing <strong class="text-dark" x-text="pageStart()"></strong> to <strong class="text-dark" x-text="pageEnd()"></strong> of <strong class="text-dark" x-text="queue.length"></strong> records</span>
-                                <span class="mx-2 text-muted">|</span>
-                                <label for="pageSizeInput" class="me-1">Per page:</label>
-                                <input id="pageSizeInput" type="number" min="1" step="1" class="form-control form-control-sm text-center bg-white" style="width: 70px;" x-model.number="pageSize" @input="onPageSizeChange()">
+                                <span class="mx-1 text-muted">|</span>
+                                <div class="d-inline-flex align-items-center gap-1">
+                                    <label for="pageSizeInput" class="mb-0 text-nowrap">Per page:</label>
+                                    <input id="pageSizeInput" type="number" min="1" step="1" class="form-control form-control-sm text-center bg-white py-0 px-1" style="width: 60px; height: 28px;" x-model.number="pageSize" @input="onPageSizeChange()">
+                                </div>
                             </div>
                             <div class="d-flex align-items-center gap-1" x-show="totalPages() > 1">
                                 <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" :disabled="currentPage <= 1" @click="setPage(1)" title="First Page">
@@ -545,7 +548,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                                 <div class="d-flex align-items-center justify-content-end gap-1">
                                                     <template x-if="item.download_url">
                                                         <a :href="item.download_url" class="btn btn-outline-primary btn-sm py-1 px-2" title="Download Letter" target="_blank">
-                                                            <i class="fas fa-download me-1"></i> Download
+                                                            <i class="fas fa-download"></i>
                                                         </a>
                                                     </template>
                                                     <template x-if="!item.download_url">
@@ -564,11 +567,13 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 
                         <!-- Archive Pagination Footer -->
                         <div class="d-flex align-items-center justify-content-between p-3 border-top bg-light flex-wrap gap-2">
-                            <div class="d-flex align-items-center gap-2 text-muted small">
+                            <div class="d-flex align-items-center gap-2 text-muted small flex-wrap">
                                 <span>Showing <strong class="text-dark" x-text="archivePageStart()"></strong> to <strong class="text-dark" x-text="archivePageEnd()"></strong> of <strong class="text-dark" x-text="archive.length"></strong> records</span>
-                                <span class="mx-2 text-muted">|</span>
-                                <label for="archivePageSizeInput" class="me-1">Per page:</label>
-                                <input id="archivePageSizeInput" type="number" min="1" step="1" class="form-control form-control-sm text-center bg-white" style="width: 70px;" x-model.number="archivePageSize" @input="onArchivePageSizeChange()">
+                                <span class="mx-1 text-muted">|</span>
+                                <div class="d-inline-flex align-items-center gap-1">
+                                    <label for="archivePageSizeInput" class="mb-0 text-nowrap">Per page:</label>
+                                    <input id="archivePageSizeInput" type="number" min="1" step="1" class="form-control form-control-sm text-center bg-white py-0 px-1" style="width: 60px; height: 28px;" x-model.number="archivePageSize" @input="onArchivePageSizeChange()">
+                                </div>
                             </div>
                             <div class="d-flex align-items-center gap-1" x-show="archiveTotalPages() > 1">
                                 <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" :disabled="archiveCurrentPage <= 1" @click="setArchivePage(1)" title="First Page">
@@ -1098,7 +1103,26 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                     });
                     if (res.success) {
                         this.showAlert(`Successfully generated ${res.generated} letter(s).`, 'success');
-                        await this.loadQueue();
+                        // Download generated letter files automatically
+                        if (Array.isArray(res.files)) {
+                            res.files.forEach(f => {
+                                if (f.download_url) {
+                                    const a = document.createElement('a');
+                                    a.href = f.download_url;
+                                    a.download = f.filename || 'letter.docx';
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                }
+                            });
+                            // Update items in the current queue to reflect generated status without removing them
+                            const generatedKeys = new Set(res.files.map(f => f.record_id + '_' + f.rule_id));
+                            this.queue.forEach(qItem => {
+                                if (generatedKeys.has(qItem.record_id + '_' + qItem.rule_id)) {
+                                    qItem.is_generated = true;
+                                }
+                            });
+                        }
                         await this.loadArchive();
                     } else {
                         this.showAlert(res.error || 'Generation failed', 'danger');
@@ -1118,7 +1142,18 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                     });
                     if (res.success) {
                         this.showAlert(`Generated letter for record ${item.record_id}.`, 'success');
-                        await this.loadQueue();
+                        // Trigger file download
+                        const fileInfo = (res.files && res.files[0]) ? res.files[0] : null;
+                        if (fileInfo && fileInfo.download_url) {
+                            const a = document.createElement('a');
+                            a.href = fileInfo.download_url;
+                            a.download = fileInfo.filename || 'letter.docx';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                        }
+                        // Mark as generated on the existing queue row without removing or refreshing queue
+                        item.is_generated = true;
                         await this.loadArchive();
                     } else {
                         this.showAlert(res.error || 'Generation failed', 'danger');
@@ -1220,6 +1255,18 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                     });
                     if (res.success) {
                         this.showAlert(`Successfully generated ${res.generated} and marked ${res.resolved} letter(s) as resolved.`, 'success');
+                        if (Array.isArray(res.files)) {
+                            res.files.forEach(f => {
+                                if (f.download_url) {
+                                    const a = document.createElement('a');
+                                    a.href = f.download_url;
+                                    a.download = f.filename || 'letter.docx';
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                }
+                            });
+                        }
                         await this.loadQueue();
                         await this.loadArchive();
                     } else {
@@ -1438,13 +1485,42 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                     });
 
                     if (resRules.success && resSettings.success) {
-                        this.showAlert('Configuration and rules saved successfully', 'success');
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Settings Saved',
+                                text: 'Configuration and rules have been saved successfully.',
+                                timer: 2000,
+                                timerProgressBar: true,
+                                showConfirmButton: false
+                            });
+                        } else {
+                            this.showAlert('Configuration and rules saved successfully', 'success');
+                        }
                         await this.loadQueue();
                     } else {
-                        this.showAlert((resRules.error || resSettings.error) || 'Failed to save configuration', 'danger');
+                        const errMsg = (resRules.error || resSettings.error) || 'Failed to save configuration';
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Save Failed',
+                                text: errMsg
+                            });
+                        } else {
+                            this.showAlert(errMsg, 'danger');
+                        }
                     }
                 } catch (e) {
-                    this.showAlert('Save failed: ' + e.message, 'danger');
+                    const errMsg = 'Save failed: ' + e.message;
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: errMsg
+                        });
+                    } else {
+                        this.showAlert(errMsg, 'danger');
+                    }
                 } finally {
                     this.saving = false;
                 }
