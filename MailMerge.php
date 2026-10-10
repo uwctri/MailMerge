@@ -2,17 +2,13 @@
 
 namespace UWMadison\MailMerge;
 
-/**
- * @psalm-suppress UndefinedConstant, UndefinedClass
- * @noinspection PhpUndefinedClassInspection, PhpUndefinedConstantInspection, PhpUndefinedVariableInspection
- */
-
 require_once __DIR__ . '/DocxEngine.php';
 
 use ExternalModules\AbstractExternalModule;
 use REDCap;
 use Files;
 use Piping;
+use Throwable;
 
 class MailMerge extends AbstractExternalModule
 {
@@ -259,28 +255,65 @@ class MailMerge extends AbstractExternalModule
         $cleanCond = trim($cond);
         if ($cleanCond === '') return true;
 
-        $isDue = REDCap::evaluateLogic($cleanCond, $pid, $recordId, $eventId);
-        if ($isDue) return true;
+        $uniqueEvents = REDCap::isLongitudinal() ? REDCap::getEventNames(true, false) : [];
 
-        if (!empty($allRecordEvents)) {
-            $uniqueEvents = REDCap::isLongitudinal() ? REDCap::getEventNames(true, false) : [];
-            $prefixedCond = preg_replace_callback('/(?<!\])\[([a-zA-Z0-9_\-]+)\]/', function ($m) use ($eventId, $allRecordEvents, $uniqueEvents) {
-                $f = $m[1];
-                $currentVal = ($eventId && isset($allRecordEvents[$eventId][$f])) ? (string)$allRecordEvents[$eventId][$f] : '';
-                if ($currentVal === '') {
-                    foreach ($allRecordEvents as $evId => $evRow) {
-                        if ($evId != $eventId && isset($evRow[$f]) && (string)$evRow[$f] !== '') {
-                            $uName = $uniqueEvents[$evId] ?? '';
-                            if ($uName !== '') return '[' . $uName . '][' . $f . ']';
+        // Build list of candidate expressions to test
+        $candidates = [$cleanCond];
+
+        // Substitute 'today', "today", [today] with literal date 'YYYY-MM-DD'
+        $todayStr = "'" . date('Y-m-d') . "'";
+        $withToday = preg_replace('/(?:\'today\'|"today"|\[today\])/i', $todayStr, $cleanCond);
+        if ($withToday !== $cleanCond) {
+            $candidates[] = $withToday;
+        }
+
+        // Cross-event fallback: replace unprefixed [field] with [event_name][field] where field has data
+        if (!empty($allRecordEvents) && !empty($uniqueEvents)) {
+            $replaceFallback = function ($expr) use ($eventId, $allRecordEvents, $uniqueEvents) {
+                return preg_replace_callback('/(?<!\])\[([a-zA-Z0-9_\-]+)\](?!\s*\[)/', function ($m) use ($eventId, $allRecordEvents, $uniqueEvents) {
+                    $f = $m[1];
+                    if (in_array($f, $uniqueEvents)) return $m[0];
+
+                    $currentVal = ($eventId && isset($allRecordEvents[$eventId][$f])) ? (string)$allRecordEvents[$eventId][$f] : '';
+                    if ($currentVal === '') {
+                        foreach ($allRecordEvents as $evId => $evRow) {
+                            if ($evId != $eventId && isset($evRow[$f]) && (string)$evRow[$f] !== '') {
+                                $uName = $uniqueEvents[$evId] ?? '';
+                                if ($uName !== '') return '[' . $uName . '][' . $f . ']';
+                            }
                         }
                     }
-                }
-                return $m[0];
-            }, $cleanCond);
+                    return $m[0];
+                }, $expr);
+            };
 
-            if ($prefixedCond !== $cleanCond) {
-                $isDue = REDCap::evaluateLogic($prefixedCond, $pid, $recordId, $eventId);
-                if ($isDue) return true;
+            $prefixed = $replaceFallback($cleanCond);
+            if ($prefixed !== $cleanCond) {
+                $candidates[] = $prefixed;
+                $prefixedToday = preg_replace('/(?:\'today\'|"today"|\[today\])/i', $todayStr, $prefixed);
+                if ($prefixedToday !== $prefixed) {
+                    $candidates[] = $prefixedToday;
+                }
+            }
+        }
+
+        $candidates = array_unique($candidates);
+
+        foreach ($candidates as $expr) {
+            // 1. Try global record context (passing null event allows cross-event references [event][field] to evaluate cleanly)
+            try {
+                $res = REDCap::evaluateLogic($expr, $pid, $recordId, null);
+                if ($res === true || $res === 1 || $res === '1') return true;
+            } catch (Throwable $e) {
+            }
+
+            // 2. Try specific event context if eventId was provided
+            if ($eventId) {
+                try {
+                    $res = REDCap::evaluateLogic($expr, $pid, $recordId, $eventId);
+                    if ($res === true || $res === 1 || $res === '1') return true;
+                } catch (Throwable $e) {
+                }
             }
         }
 
@@ -403,23 +436,38 @@ class MailMerge extends AbstractExternalModule
             $eventId = $rule['event_id'] ?: null;
             $flagField = trim($rule['flag_field'] ?? '');
             $printedField = trim($rule['printed_flag_field'] ?? '');
-            $completionField = $printedField !== '' ? $printedField : $flagField;
 
-            // Track latest log action for this rule per record
-            $ruleLogRes = $this->queryLogs(
-                "SELECT log_id, record, message WHERE (message = 'Marked letter resolved' OR message = 'Returned letter to queue' OR message = 'Generated letter') AND rule_id = ? ORDER BY log_id ASC",
-                [(string)$rule['id']]
-            );
-            $latestLogAction = [];
-            $generatedInLog = [];
-            while ($r = $ruleLogRes->fetch_assoc()) {
-                if (empty($r['record'])) continue;
-                $rec = (string)$r['record'];
-                $msg = $r['message'];
-                $latestLogAction[$rec] = $msg;
-                if ($msg === 'Generated letter') {
-                    $generatedInLog[$rec] = true;
+            // Track latest resolution log action ('Marked letter resolved' or 'Returned letter to queue')
+            $resolutionLogAction = [];
+            try {
+                $resLogRes = $this->queryLogs(
+                    "SELECT log_id, record, message WHERE (message = 'Marked letter resolved' OR message = 'Returned letter to queue') AND rule_id = ? ORDER BY log_id ASC",
+                    [(string)$rule['id']]
+                );
+                if ($resLogRes) {
+                    while ($r = $resLogRes->fetch_assoc()) {
+                        if (empty($r['record'])) continue;
+                        $resolutionLogAction[(string)$r['record']] = $r['message'];
+                    }
                 }
+            } catch (Throwable $e) {
+            }
+
+            // Track generated status from logs
+            $generatedInLog = [];
+            try {
+                $genLogRes = $this->queryLogs(
+                    "SELECT record WHERE message = 'Generated letter' AND rule_id = ?",
+                    [(string)$rule['id']]
+                );
+                if ($genLogRes) {
+                    while ($r = $genLogRes->fetch_assoc()) {
+                        if (!empty($r['record'])) {
+                            $generatedInLog[(string)$r['record']] = true;
+                        }
+                    }
+                }
+            } catch (Throwable $e) {
             }
 
             foreach ($allData as $recordId => $recordEvents) {
@@ -432,39 +480,38 @@ class MailMerge extends AbstractExternalModule
                 $primaryEvent = $eventId ?: array_key_first($recordEvents);
                 $row = $recordEvents[$primaryEvent] ?? [];
 
-                // Determine resolution status:
-                // If user explicitly returned letter to queue, do not consider resolved
-                $lastAction = $latestLogAction[$recStr] ?? null;
+                // Determine resolution status (removal from queue):
+                // 1. If user explicitly returned letter to queue, do not consider resolved
+                $lastRes = $resolutionLogAction[$recStr] ?? null;
                 $isResolved = false;
 
-                if ($lastAction === 'Returned letter to queue') {
+                if ($lastRes === 'Returned letter to queue') {
                     $isResolved = false;
-                } else if ($lastAction === 'Marked letter resolved') {
-                    $isResolved = true;
-                } else if ($completionField !== '') {
-                    // Check if completion field is populated on primary or any event
-                    $val = trim((string)($row[$completionField] ?? ''));
-                    if ($val === '' || $val === '0') {
+                } else if ($printedField !== '') {
+                    // When printed_flag_field is defined, REDCap field value is the authority
+                    $pVal = trim((string)($row[$printedField] ?? ''));
+                    if ($pVal === '' || $pVal === '0') {
                         foreach ($recordEvents as $eRow) {
-                            $candidateVal = trim((string)($eRow[$completionField] ?? ''));
+                            $candidateVal = trim((string)($eRow[$printedField] ?? ''));
                             if ($candidateVal !== '' && $candidateVal !== '0') {
-                                $val = $candidateVal;
+                                $pVal = $candidateVal;
                                 break;
                             }
                         }
                     }
-                    if ($val !== '' && $val !== '0') {
+                    if ($pVal !== '' && $pVal !== '0') {
                         $isResolved = true;
                     }
+                } else if ($lastRes === 'Marked letter resolved') {
+                    // Only when NO printed_flag_field is configured do we fall back to log action
+                    $isResolved = true;
                 }
 
                 if ($isResolved) continue;
 
                 // Determine whether it has been generated
                 $isGenerated = false;
-                if ($lastAction === 'Returned letter to queue') {
-                    $isGenerated = false;
-                } else if ($flagField !== '') {
+                if ($flagField !== '') {
                     $gVal = trim((string)($row[$flagField] ?? ''));
                     if ($gVal === '' || $gVal === '0') {
                         foreach ($recordEvents as $eRow) {
@@ -694,8 +741,7 @@ class MailMerge extends AbstractExternalModule
             if (!$recordId || !$rule) continue;
 
             $eventId = $rule['event_id'] ?: null;
-            $printedField = trim($rule['printed_flag_field'] ?? '');
-            $targetField = $printedField !== '' ? $printedField : trim($rule['flag_field'] ?? '');
+            $targetField = trim($rule['printed_flag_field'] ?? '');
 
             if ($targetField !== '') {
                 $flagValue = '1';
@@ -747,7 +793,6 @@ class MailMerge extends AbstractExternalModule
         $eventId = $rule['event_id'] ?: null;
         $fieldsToReset = [];
         if (!empty($rule['printed_flag_field'])) $fieldsToReset[] = trim($rule['printed_flag_field']);
-        if (!empty($rule['flag_field'])) $fieldsToReset[] = trim($rule['flag_field']);
         $fieldsToReset = array_unique(array_filter($fieldsToReset));
 
         $isLongitudinal = REDCap::isLongitudinal();

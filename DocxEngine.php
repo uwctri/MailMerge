@@ -2,11 +2,6 @@
 
 namespace UWMadison\MailMerge;
 
-/**
- * @psalm-suppress UndefinedClass
- * @noinspection PhpUndefinedClassInspection
- */
-
 use ZipArchive;
 
 class DocxEngine

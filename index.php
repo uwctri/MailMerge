@@ -2,11 +2,7 @@
 
 namespace UWMadison\MailMerge;
 
-/**
- * @var MailMerge $module
- * @psalm-suppress UndefinedConstant, UndefinedClass
- * @noinspection PhpUndefinedClassInspection, PhpUndefinedConstantInspection, PhpUndefinedVariableInspection
- */
+/** @var \ExternalModules\MailMerge $module */
 
 use REDCap;
 
@@ -206,12 +202,12 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             </div>
         </div>
 
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 align-items-center">
             <!-- Queue Tab Actions -->
             <template x-if="activeTab === 'queue'">
                 <div class="dropdown">
-                    <button type="button" class="btn btn-primary btn-sm px-3 shadow-sm fw-bold dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" :disabled="selected.length === 0 || generating">
-                        <i class="fas me-1" :class="generating ? 'fa-spinner fa-spin' : 'fa-tasks'"></i>
+                    <button type="button" class="btn btn-primary px-3 py-2 shadow-sm fw-bold dropdown-toggle d-inline-flex align-items-center" data-bs-toggle="dropdown" aria-expanded="false" :disabled="selected.length === 0 || generating">
+                        <i class="fas me-2" :class="generating ? 'fa-spinner fa-spin' : 'fa-tasks'"></i>
                         <span x-text="generating ? 'Processing...' : ('Actions (' + selected.length + ')')"></span>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end shadow">
@@ -239,8 +235,8 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 
             <!-- Configuration Tab Actions -->
             <template x-if="activeTab === 'config'">
-                <button type="button" class="btn btn-success btn-sm px-3 shadow-sm fw-bold d-inline-flex align-items-center justify-content-center" style="width: 88px;" @click="saveAllConfiguration()" :disabled="saving" title="Save Configuration">
-                    <i class="fas me-1" :class="saving ? 'fa-spinner fa-spin' : 'fa-save'"></i>
+                <button type="button" class="btn btn-success px-4 py-2 shadow-sm fw-bold d-inline-flex align-items-center justify-content-center" style="min-width: 105px;" @click="saveAllConfiguration()" :disabled="saving" title="Save Configuration">
+                    <i class="fas me-2" :class="saving ? 'fa-spinner fa-spin' : 'fa-save'"></i>
                     <span>Save</span>
                 </button>
             </template>
@@ -306,7 +302,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                         <th>Letter Title</th>
                                         <th>Event</th>
                                         <th>Status</th>
-                                        <th class="text-end" style="width: 90px;"></th>
+                                        <th class="text-end" style="width: 105px;"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -331,10 +327,10 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                             </td>
                                             <td class="text-end">
                                                 <div class="d-flex align-items-center justify-content-end gap-1">
-                                                    <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2" title="Generate Letter" @click="generateSingle(item)" :disabled="generating">
+                                                    <button type="button" class="btn btn-outline-primary btn-sm" style="padding: 0.35rem 0.65rem;" title="Generate Letter" @click="generateSingle(item)" :disabled="generating">
                                                         <i class="fas fa-print"></i>
                                                     </button>
-                                                    <button type="button" class="btn btn-outline-success btn-sm py-1 px-2" title="Mark as Resolved / Printed" @click="confirmResolveSingle(item)" :disabled="generating">
+                                                    <button type="button" class="btn btn-outline-success btn-sm" style="padding: 0.35rem 0.65rem;" title="Mark as Resolved / Printed" @click="confirmResolveSingle(item)" :disabled="generating">
                                                         <i class="fas fa-check"></i>
                                                     </button>
                                                 </div>
@@ -550,17 +546,17 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                             <td class="text-end">
                                                 <div class="d-flex align-items-center justify-content-end gap-1">
                                                     <template x-if="item.download_url">
-                                                        <a :href="item.download_url" class="btn btn-outline-primary btn-sm py-1 px-2" title="Download Letter" target="_blank">
+                                                        <a :href="item.download_url" class="btn btn-outline-primary btn-sm" style="padding: 0.35rem 0.65rem;" title="Download Letter" target="_blank">
                                                             <i class="fas fa-download"></i>
                                                         </a>
                                                     </template>
                                                     <template x-if="!item.download_url">
                                                         <span class="badge bg-light text-muted border me-1">Missing</span>
                                                     </template>
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" title="Re-generate Letter" @click="regenerateFromArchive(item)" :disabled="generating">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" style="padding: 0.35rem 0.65rem;" title="Re-generate Letter" @click="regenerateFromArchive(item)" :disabled="generating">
                                                         <i class="fas fa-sync-alt"></i>
                                                     </button>
-                                                    <button type="button" class="btn btn-outline-warning text-dark btn-sm py-1 px-2" title="Return to Queue" @click="confirmReturnToQueue(item)" :disabled="generating">
+                                                    <button type="button" class="btn btn-outline-warning text-dark btn-sm" style="padding: 0.35rem 0.65rem;" title="Return to Queue" @click="confirmReturnToQueue(item)" :disabled="generating">
                                                         <i class="fas fa-undo"></i>
                                                     </button>
                                                 </div>
@@ -698,24 +694,26 @@ $alpineUrl = $module->getUrl('alpine.min.js');
         <div class="card shadow mb-4" style="max-width: 100%; overflow: hidden;">
             <div class="card-header py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-cogs me-2 text-primary"></i>Letter Rules & Logic</h5>
-                <button type="button" class="btn btn-primary btn-sm" @click="addRule()">
-                    <i class="fas fa-plus me-1"></i> Add Letter Rule
+                <button type="button" class="btn btn-primary px-3 py-2 shadow-sm fw-bold d-inline-flex align-items-center" @click="addRule()">
+                    <i class="fas fa-plus me-2"></i> Add Letter Rule
                 </button>
             </div>
             <div class="card-body">
                 <template x-for="(r, idx) in rules" :key="r.id">
                     <div class="rule-card rounded-3 p-3 mb-3 position-relative" style="max-width: 100%; overflow: hidden;">
                         <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2 flex-wrap gap-2">
-                            <div class="flex-grow-1" style="min-width: 240px; max-width: 480px;">
-                                <div class="input-group input-group-sm">
+                            <div class="d-flex align-items-center gap-2 flex-grow-1" style="min-width: 240px; max-width: 560px;">
+                                <div class="input-group input-group-sm flex-grow-1">
                                     <span class="input-group-text bg-secondary text-white fw-bold" x-text="'Rule #' + (idx + 1)"></span>
                                     <input type="text" class="form-control fw-bold" x-model="r.title" placeholder="Letter Title (e.g. Visit 1 Letter)">
                                 </div>
+                                <span x-show="!r.enabled" class="badge bg-secondary text-white px-2 py-1 text-nowrap shadow-sm d-inline-flex align-items-center" style="font-size: 0.75rem;">
+                                    <i class="fas fa-pause-circle me-1"></i>Deactivated
+                                </span>
                             </div>
                             <div class="d-flex align-items-center gap-3 ms-auto">
-                                <div class="form-check form-switch mb-0 d-flex align-items-center gap-1">
-                                    <input class="form-check-input mt-0" type="checkbox" :id="'sw_' + r.id" x-model="r.enabled">
-                                    <label class="form-check-label small user-select-none" :for="'sw_' + r.id" x-text="r.enabled ? 'Enabled' : 'Disabled'"></label>
+                                <div class="form-check form-switch mb-0 d-flex align-items-center" title="Toggle Enable / Deactivate Rule">
+                                    <input class="form-check-input mt-0" type="checkbox" :id="'sw_' + r.id" x-model="r.enabled" style="font-size: 1.35rem; cursor: pointer;" :title="r.enabled ? 'Click to Deactivate Rule' : 'Click to Enable Rule'">
                                 </div>
                                 <button type="button" class="btn btn-outline-danger btn-sm" @click="removeRule(idx)" title="Delete Rule">
                                     <i class="fas fa-trash"></i>
