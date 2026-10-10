@@ -139,14 +139,9 @@ $alpineUrl = $module->getUrl('alpine.min.js');
         display: none !important;
     }
 
-    #center {
-        overflow-x: hidden !important;
-    }
-
     .rule-card,
     .card {
         max-width: 100% !important;
-        overflow-x: hidden !important;
     }
 
     .rule-card .row,
@@ -187,9 +182,17 @@ $alpineUrl = $module->getUrl('alpine.min.js');
         overflow: hidden !important;
         text-overflow: ellipsis !important;
     }
+
+    #center {
+        min-height: calc(100vh - 120px) !important;
+    }
+
+    .mailmerge-main-container {
+        min-height: calc(100vh - 220px);
+    }
 </style>
 
-<div class="pe-3 py-3 w-100" style="max-width: 100%; overflow-x: hidden;" x-data="mailMergeApp()" x-cloak>
+<div class="pe-3 py-3 w-100 mailmerge-main-container" style="max-width: 100%;" x-data="mailMergeApp()" x-cloak>
     <!-- Top Bar -->
     <div class="d-flex align-items-center justify-content-between pb-3 mb-3 border-bottom">
         <div class="d-flex align-items-center gap-3">
@@ -279,7 +282,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 
     <!-- TAB 1: QUEUE -->
     <div x-show="activeTab === 'queue'">
-        <div class="card shadow" style="overflow: hidden;">
+        <div class="card shadow">
             <div class="card-header py-3 d-flex align-items-center justify-content-between">
                 <div class="d-flex align-items-center gap-2">
                     <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-tasks me-2 text-primary"></i>Letters Due</h5>
@@ -290,7 +293,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                 <!-- Records Table & Pagination -->
                 <template x-if="!loadingQueue && queue.length > 0">
                     <div>
-                        <div class="table-responsive" style="overflow-x: hidden;">
+                        <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0 w-100" style="table-layout: auto;">
                                 <thead class="table-light small text-muted text-uppercase">
                                     <tr>
@@ -405,8 +408,8 @@ $alpineUrl = $module->getUrl('alpine.min.js');
     </div>
 
     <!-- TAB 2: TEMPLATE LIBRARY -->
-    <div x-show="activeTab === 'templates'" style="max-width: 100%; overflow-x: hidden;">
-        <div class="card shadow mb-4" style="max-width: 100%; overflow: hidden;">
+    <div x-show="activeTab === 'templates'">
+        <div class="card shadow mb-4">
             <div class="card-header py-3 d-flex align-items-center justify-content-between">
                 <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-file-word me-2 text-primary"></i>Template Library</h5>
                 <span class="badge bg-light text-dark border" x-text="templates.length + ' Templates'"></span>
@@ -453,7 +456,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                 </div>
 
                 <!-- Stored Templates -->
-                <div class="table-responsive" style="overflow-x: hidden;" x-show="templates.length > 0">
+                <div class="table-responsive" x-show="templates.length > 0">
                     <table class="table table-hover align-middle mb-0 w-100" style="table-layout: auto;">
                         <thead class="table-light small text-muted text-uppercase">
                             <tr>
@@ -499,8 +502,8 @@ $alpineUrl = $module->getUrl('alpine.min.js');
     </div>
 
     <!-- TAB 4: ARCHIVE -->
-    <div x-show="activeTab === 'archive'" style="max-width: 100%; overflow-x: hidden;">
-        <div class="card shadow mb-4" style="max-width: 100%; overflow: hidden;">
+    <div x-show="activeTab === 'archive'">
+        <div class="card shadow mb-4">
             <div class="card-header py-3 d-flex align-items-center justify-content-between">
                 <div class="d-flex align-items-center gap-2">
                     <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-archive me-2 text-primary"></i>Letter Archive</h5>
@@ -511,7 +514,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                 <!-- Archive Table & Pagination -->
                 <template x-if="!loadingArchive && archive.length > 0">
                     <div>
-                        <div class="table-responsive" style="overflow-x: hidden;">
+                        <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0 w-100" style="table-layout: auto;">
                                 <thead class="table-light small text-muted text-uppercase">
                                     <tr>
@@ -619,9 +622,9 @@ $alpineUrl = $module->getUrl('alpine.min.js');
     </div>
 
     <!-- TAB 4: CONFIGURATION -->
-    <div x-show="activeTab === 'config'" style="max-width: 100%; overflow-x: hidden;">
+    <div x-show="activeTab === 'config'">
         <!-- Automation & Delivery Section -->
-        <div class="card shadow mb-4" style="max-width: 100%; overflow: hidden;">
+        <div class="card shadow mb-4">
             <div class="card-header py-3">
                 <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-robot me-2 text-primary"></i>Automation & Storage Settings</h5>
             </div>
@@ -691,7 +694,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
         </div>
 
         <!-- Rules & Logic Section -->
-        <div class="card shadow mb-4" style="max-width: 100%; overflow: hidden;">
+        <div class="card shadow mb-4">
             <div class="card-header py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-cogs me-2 text-primary"></i>Letter Rules & Logic</h5>
                 <button type="button" class="btn btn-primary px-3 py-2 shadow-sm fw-bold d-inline-flex align-items-center" @click="addRule()">
@@ -700,7 +703,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             </div>
             <div class="card-body">
                 <template x-for="(r, idx) in rules" :key="r.id">
-                    <div class="rule-card rounded-3 p-3 mb-3 position-relative" style="max-width: 100%; overflow: hidden;">
+                    <div class="rule-card rounded-3 p-3 mb-3 position-relative">
                         <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2 flex-wrap gap-2">
                             <div class="d-flex align-items-center gap-2 flex-grow-1" style="min-width: 240px; max-width: 560px;">
                                 <div class="input-group input-group-sm flex-grow-1">
@@ -1032,9 +1035,21 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                 }
             },
 
+            triggerFooterUpdate() {
+                this.$nextTick(() => {
+                    if (typeof setProjectFooterPosition === 'function') {
+                        setProjectFooterPosition();
+                    }
+                });
+            },
+
             init() {
                 this.loadQueue();
                 this.loadArchive();
+                this.triggerFooterUpdate();
+                this.$watch('activeTab', () => {
+                    this.triggerFooterUpdate();
+                });
             },
 
             itemKey(item) {
