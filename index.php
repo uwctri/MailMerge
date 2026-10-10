@@ -1,4 +1,5 @@
 <?php
+
 namespace UWMadison\MailMerge;
 
 /**
@@ -48,89 +49,151 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 <script src="<?= htmlspecialchars($alpineUrl, ENT_QUOTES) ?>" defer></script>
 
 <style>
-[x-cloak] {
-    display: none !important;
-}
-.card {
-    border: 1px solid #c2c9d2 !important;
-    border-radius: 0.5rem !important;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08) !important;
-    background-color: #ffffff;
-}
-.card-header {
-    background-color: #f4f6f9 !important;
-    border-bottom: 1px solid #c2c9d2 !important;
-}
-.rule-card {
-    border: 1px solid #c2c9d2 !important;
-    background-color: #fcfdfe !important;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-}
-.drop-zone {
-    border: 2px dashed #0d6efd;
-    background-color: #f8faff;
-    transition: all 0.2s ease-in-out;
-    cursor: pointer;
-    text-align: center !important;
-}
-.drop-zone p, .drop-zone h5 {
-    text-align: center !important;
-}
-.drop-zone.dragover {
-    background-color: #e7f1ff;
-    border-color: #0a58ca;
-}
-.badge-tag {
-    background-color: #e9ecef;
-    color: #495057;
-    font-weight: 500;
-}
-.nav-tabs .nav-link {
-    color: #495057;
-    border: none;
-    border-bottom: 2px solid transparent;
-    padding: 0.6rem 1.2rem;
-}
-.nav-tabs .nav-link.active {
-    color: #0d6efd;
-    font-weight: 600;
-    border-bottom: 2px solid #0d6efd;
-    background: transparent;
-}
-.hover-tip {
-    position: absolute;
-    bottom: 130%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #212529;
-    color: #fff;
-    padding: 0.45rem 0.65rem;
-    border-radius: 0.375rem;
-    font-size: 0.75rem;
-    line-height: 1.35;
-    white-space: normal;
-    width: 260px;
-    z-index: 1060;
-    pointer-events: none;
-    text-align: left;
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
-}
-.hover-tip::after {
-    content: "";
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    margin-left: -5px;
-    border-width: 5px;
-    border-style: solid;
-    border-color: #212529 transparent transparent transparent;
-}
-[x-cloak] {
-    display: none !important;
-}
+    [x-cloak] {
+        display: none !important;
+    }
+
+    .card {
+        border: 1px solid #c2c9d2 !important;
+        border-radius: 0.5rem !important;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08) !important;
+        background-color: #ffffff;
+    }
+
+    .card-header {
+        background-color: #f4f6f9 !important;
+        border-bottom: 1px solid #c2c9d2 !important;
+    }
+
+    .rule-card {
+        border: 1px solid #c2c9d2 !important;
+        background-color: #fcfdfe !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    }
+
+    .drop-zone {
+        border: 2px dashed #0d6efd;
+        background-color: #f8faff;
+        transition: all 0.2s ease-in-out;
+        cursor: pointer;
+        text-align: center !important;
+    }
+
+    .drop-zone p,
+    .drop-zone h5 {
+        text-align: center !important;
+    }
+
+    .drop-zone.dragover {
+        background-color: #e7f1ff;
+        border-color: #0a58ca;
+    }
+
+    .badge-tag {
+        background-color: #e9ecef;
+        color: #495057;
+        font-weight: 500;
+    }
+
+    .nav-tabs .nav-link {
+        color: #495057;
+        border: none;
+        border-bottom: 2px solid transparent;
+        padding: 0.6rem 1.2rem;
+    }
+
+    .nav-tabs .nav-link.active {
+        color: #0d6efd;
+        font-weight: 600;
+        border-bottom: 2px solid #0d6efd;
+        background: transparent;
+    }
+
+    .hover-tip {
+        position: absolute;
+        bottom: 130%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #212529;
+        color: #fff;
+        padding: 0.45rem 0.65rem;
+        border-radius: 0.375rem;
+        font-size: 0.75rem;
+        line-height: 1.35;
+        white-space: normal;
+        width: 260px;
+        z-index: 1060;
+        pointer-events: none;
+        text-align: left;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
+    }
+
+    .hover-tip::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: #212529 transparent transparent transparent;
+    }
+
+    [x-cloak] {
+        display: none !important;
+    }
+
+    #center {
+        overflow-x: hidden !important;
+    }
+
+    .rule-card,
+    .card {
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+    }
+
+    .rule-card .row,
+    .card-body .row {
+        margin-left: -0.5rem !important;
+        margin-right: -0.5rem !important;
+        max-width: calc(100% + 1rem) !important;
+    }
+
+    .rule-card .row>*,
+    .card-body .row>* {
+        min-width: 0 !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+
+    .rule-card input,
+    .rule-card select,
+    .card-body input,
+    .card-body select {
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    .rule-card code,
+    .alert code {
+        white-space: normal !important;
+        word-break: break-word !important;
+    }
+
+    .rule-card table {
+        table-layout: fixed !important;
+        width: 100% !important;
+    }
+
+    .rule-card table td,
+    .rule-card table th {
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
 </style>
 
-<div class="ps-2 pe-3 py-3 w-100" style="max-width: 100%; overflow-x: hidden;" x-data="mailMergeApp()" x-cloak>
+<div class="pe-3 py-3 w-100" style="max-width: 100%; overflow-x: hidden;" x-data="mailMergeApp()" x-cloak>
     <!-- Top Bar -->
     <div class="d-flex align-items-center justify-content-between pb-3 mb-3 border-bottom">
         <div class="d-flex align-items-center gap-3">
@@ -162,7 +225,9 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                 <i class="fas fa-check text-success me-2"></i>Mark Selected as Resolved
                             </button>
                         </li>
-                        <li><hr class="dropdown-divider my-1"></li>
+                        <li>
+                            <hr class="dropdown-divider my-1">
+                        </li>
                         <li>
                             <button type="button" class="dropdown-item py-2" @click="confirmBothSelected()">
                                 <i class="fas fa-magic text-primary me-2"></i>Both (Generate & Mark Resolved)
@@ -172,19 +237,11 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                 </div>
             </template>
 
-            <!-- Archive Tab Actions -->
-            <template x-if="activeTab === 'archive'">
-                <button type="button" class="btn btn-outline-secondary btn-sm" @click="loadArchive()" :disabled="loadingArchive">
-                    <i class="fas me-1" :class="loadingArchive ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i> Refresh Archive
-                </button>
-            </template>
-
             <!-- Configuration Tab Actions -->
             <template x-if="activeTab === 'config'">
                 <button type="button" class="btn btn-success btn-sm px-3 shadow-sm fw-bold" @click="saveAllConfiguration()" :disabled="saving">
                     <i class="fas me-1" :class="saving ? 'fa-spinner fa-spin' : 'fa-save'"></i>
                     <span x-text="saving ? 'Saving...' : 'Save Configuration'"></span>
-                </button>
             </template>
         </div>
     </div>
@@ -210,15 +267,15 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link" :class="{ 'active': activeTab === 'archive' }" @click="activeTab = 'archive'; if (archive.length === 0) loadArchive();">
-                <i class="fas fa-archive me-1"></i> Archive
-                <span class="badge bg-secondary ms-1" x-text="archive.length" x-show="archive.length > 0"></span>
-            </button>
-        </li>
-        <li class="nav-item">
             <button class="nav-link" :class="{ 'active': activeTab === 'config' }" @click="activeTab = 'config'">
                 <i class="fas fa-cogs me-1"></i> Configuration
                 <span class="badge bg-light text-muted border ms-1" x-text="rules.length" x-show="rules.length > 0"></span>
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" :class="{ 'active': activeTab === 'archive' }" @click="activeTab = 'archive'; if (archive.length === 0) loadArchive();">
+                <i class="fas fa-archive me-1"></i> Archive
+                <span class="badge bg-secondary ms-1" x-text="archive.length" x-show="archive.length > 0"></span>
             </button>
         </li>
     </ul>
@@ -358,11 +415,11 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             <div class="card-body">
                 <!-- Large Dedicated Drag & Drop Area -->
                 <div class="drop-zone rounded-3 py-5 px-4 d-flex flex-column align-items-center justify-content-center text-center mb-4"
-                     :class="{ 'dragover': isDragging }"
-                     @dragover.prevent="isDragging = true"
-                     @dragleave.prevent="isDragging = false"
-                     @drop.prevent="handleDrop($event)"
-                     @click="$refs.fileInput.click()">
+                    :class="{ 'dragover': isDragging }"
+                    @dragover.prevent="isDragging = true"
+                    @dragleave.prevent="isDragging = false"
+                    @drop.prevent="handleDrop($event)"
+                    @click="$refs.fileInput.click()">
                     <input type="file" x-ref="fileInput" class="d-none" multiple accept=".docx" @change="handleFileSelect($event)">
                     <div class="mb-3 text-center">
                         <i class="fas fa-cloud-upload-alt text-primary" style="font-size: 3.5rem;"></i>
@@ -442,17 +499,14 @@ $alpineUrl = $module->getUrl('alpine.min.js');
         </div>
     </div>
 
-    <!-- TAB 3: ARCHIVE -->
+    <!-- TAB 4: ARCHIVE -->
     <div x-show="activeTab === 'archive'" style="max-width: 100%; overflow-x: hidden;">
         <div class="card shadow mb-4" style="max-width: 100%; overflow: hidden;">
-            <div class="card-header py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="card-header py-3 d-flex align-items-center justify-content-between">
                 <div class="d-flex align-items-center gap-2">
                     <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-archive me-2 text-primary"></i>Letter Archive</h5>
                     <span class="badge bg-secondary" x-text="archive.length + ' Logged Letters'"></span>
                 </div>
-                <button type="button" class="btn btn-outline-secondary btn-sm" @click="loadArchive()" :disabled="loadingArchive">
-                    <i class="fas me-1" :class="loadingArchive ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i> Refresh
-                </button>
             </div>
             <div class="card-body p-0">
                 <!-- Archive Table & Pagination -->
@@ -657,7 +711,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                         </div>
 
                         <div class="row g-3 mb-3">
-                            <div class="<?= $isLongitudinal ? 'col-md-3' : 'col-md-4' ?>">
+                            <div class="col-12 col-md-6">
                                 <label class="form-label small fw-bold">Template File (.docx)</label>
                                 <select class="form-select form-select-sm" x-model="r.template_doc_id" @change="onTemplateChange(r)">
                                     <option value="0">-- Select Template --</option>
@@ -668,26 +722,26 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                             </div>
 
                             <?php if ($isLongitudinal): ?>
-                            <div class="col-md-3">
-                                <label class="form-label small fw-bold d-flex align-items-center">
-                                    Target Event
-                                    <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
-                                        <i class="fas fa-info-circle text-muted cursor-pointer"></i>
-                                        <div x-show="tip" x-transition class="hover-tip">
-                                            In longitudinal studies, specifies the event context to evaluate trigger logic against and store the flag field.
-                                        </div>
-                                    </span>
-                                </label>
-                                <select class="form-select form-select-sm" x-model="r.event_id">
-                                    <option value="">-- All / Primary Event --</option>
-                                    <template x-for="e in events" :key="e.id">
-                                        <option :value="e.id" x-text="e.name"></option>
-                                    </template>
-                                </select>
-                            </div>
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label small fw-bold d-flex align-items-center">
+                                        Target Event
+                                        <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
+                                            <i class="fas fa-info-circle text-muted cursor-pointer"></i>
+                                            <div x-show="tip" x-transition class="hover-tip">
+                                                In longitudinal studies, specifies the event context to evaluate trigger logic against and store the flag field.
+                                            </div>
+                                        </span>
+                                    </label>
+                                    <select class="form-select form-select-sm" x-model="r.event_id">
+                                        <option value="">-- All / Primary Event --</option>
+                                        <template x-for="e in events" :key="e.id">
+                                            <option :value="e.id" x-text="e.name"></option>
+                                        </template>
+                                    </select>
+                                </div>
                             <?php endif; ?>
 
-                            <div class="<?= $isLongitudinal ? 'col-md-3' : 'col-md-4' ?>">
+                            <div class="col-12 col-md-6">
                                 <label class="form-label small fw-bold d-flex align-items-center">
                                     Generated Flag Field
                                     <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
@@ -700,7 +754,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                 <input type="text" class="form-control form-control-sm" list="fieldsList" x-model="r.flag_field" placeholder="e.g. letter_generated or ltr_dt">
                             </div>
 
-                            <div class="<?= $isLongitudinal ? 'col-md-3' : 'col-md-4' ?>">
+                            <div class="col-12 col-md-6">
                                 <label class="form-label small fw-bold d-flex align-items-center">
                                     Printed / Resolved Flag Field
                                     <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
@@ -745,26 +799,26 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                     <i class="fas fa-info-circle text-primary"></i> Supported Expressions & Formats
                                 </div>
                                 <div class="row g-2">
-                                    <div class="col-12 col-md-6 col-xl-3">
+                                    <div class="col-12 col-md-6">
                                         <div class="fw-semibold text-dark">Fields & Piping</div>
                                         <code>[field_name]</code> or <code>[event][field]</code><br>
                                         Compound: <code>[first_name] [last_name]</code><br>
                                         <span class="text-success small"><i class="fas fa-check-circle me-1"></i>Auto cross-event fallback</span>
                                     </div>
-                                    <div class="col-12 col-md-6 col-xl-3">
+                                    <div class="col-12 col-md-6">
                                         <div class="fw-semibold text-dark">Formatted Values (<code>:format</code>)</div>
                                         Dates: <code>[dob:m/d/y]</code>, <code>[appt:F j, Y]</code><br>
                                         Case: <code>[name:upper]</code>, <code>[name:title]</code><br>
                                         Numbers: <code>[amt:currency]</code>, <code>[val:number:2]</code>
                                     </div>
-                                    <div class="col-12 col-md-6 col-xl-3">
+                                    <div class="col-12 col-md-6">
                                         <div class="fw-semibold text-dark">Dynamic Dates & Times</div>
                                         <code>today</code> &rarr; <em><?= date('F j, Y') ?></em> (or <code>today:m/d/y</code>)<br>
                                         <code>now</code> &rarr; <em><?= date('F j, Y g:i A') ?></em><br>
                                         <code>now:format</code> &rarr; e.g. <code>now:24</code>, <code>now:Y-m-d</code><br>
                                         <code>time</code> (12h) | <code>time:24</code> &rarr; <em><?= date('H:i') ?></em>
                                     </div>
-                                    <div class="col-12 col-md-6 col-xl-3">
+                                    <div class="col-12 col-md-6">
                                         <div class="fw-semibold text-dark">If Statements & Logic</div>
                                         <code>if([score] >= 70, 'Pass', 'Fail')</code><br>
                                         <code>@IF([gender] = '1', 'Male', 'Female')</code><br>
@@ -774,12 +828,12 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                 </div>
                             </div>
 
-                            <div class="table-responsive" style="overflow-x: hidden;">
-                                <table class="table table-sm align-middle mb-0 w-100" style="table-layout: auto;">
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0 w-100" style="table-layout: fixed;">
                                     <thead class="table-light small text-muted">
                                         <tr>
-                                            <th style="width: 35%;">Word Template Tag</th>
-                                            <th style="width: 55%;">REDCap Field / Expression</th>
+                                            <th style="width: 40%;">Word Template Tag</th>
+                                            <th style="width: 50%;">REDCap Field / Expression</th>
                                             <th style="width: 10%;" class="text-end"></th>
                                         </tr>
                                     </thead>
@@ -787,10 +841,10 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                         <template x-for="(m, mIdx) in r.mappings" :key="mIdx">
                                             <tr>
                                                 <td>
-                                                    <input type="text" class="form-control form-control-sm font-monospace" x-model="m.tag" placeholder="Tag Name">
+                                                    <input type="text" class="form-control form-control-sm font-monospace w-100" x-model="m.tag" placeholder="Tag Name">
                                                 </td>
                                                 <td>
-                                                    <input type="text" class="form-control form-control-sm font-monospace" list="fieldsList" x-model="m.source" placeholder="e.g. [first_name] or [appt_date]">
+                                                    <input type="text" class="form-control form-control-sm font-monospace w-100" list="fieldsList" x-model="m.source" placeholder="e.g. [first_name] or [appt_date]">
                                                 </td>
                                                 <td class="text-end">
                                                     <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" @click="r.mappings.splice(mIdx, 1)">
@@ -855,470 +909,502 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 </div>
 
 <script>
-function mailMergeApp() {
-    const jsmObj = <?= $module->getJavascriptModuleObjectName() ?>;
-    return {
-        activeTab: 'queue',
-        templates: <?= json_encode($templates) ?>,
-        rules: <?= json_encode($rules) ?>,
-        settings: <?= json_encode($settings) ?>,
-        allowServerPath: <?= json_encode($allowServerPath) ?>,
-        events: <?= json_encode($events) ?>,
-        queue: [],
-        selected: [],
-        pageSize: 20,
-        currentPage: 1,
-        loadingQueue: true,
-        generating: false,
-        uploadQueue: [],
-        isDragging: false,
-        saving: false,
-        alert: { msg: '', type: 'info' },
+    function mailMergeApp() {
+        const jsmObj = <?= $module->getJavascriptModuleObjectName() ?>;
+        return {
+            activeTab: 'queue',
+            templates: <?= json_encode($templates) ?>,
+            rules: <?= json_encode($rules) ?>,
+            settings: <?= json_encode($settings) ?>,
+            allowServerPath: <?= json_encode($allowServerPath) ?>,
+            events: <?= json_encode($events) ?>,
+            queue: [],
+            selected: [],
+            pageSize: 20,
+            currentPage: 1,
+            loadingQueue: true,
+            generating: false,
+            uploadQueue: [],
+            isDragging: false,
+            saving: false,
+            alert: {
+                msg: '',
+                type: 'info'
+            },
 
-        archive: [],
-        loadingArchive: false,
-        archivePageSize: 20,
-        archiveCurrentPage: 1,
-        confirmModal: {
-            show: false,
-            title: '',
-            message: '',
-            action: null
-        },
+            archive: [],
+            loadingArchive: false,
+            archivePageSize: 20,
+            archiveCurrentPage: 1,
+            confirmModal: {
+                show: false,
+                title: '',
+                message: '',
+                action: null
+            },
 
-        showAlert(msg, type = 'info') {
-            this.alert.msg = msg;
-            this.alert.type = type;
-            setTimeout(() => {
-                if (this.alert.msg === msg) {
-                    this.alert.msg = '';
+            showAlert(msg, type = 'info') {
+                this.alert.msg = msg;
+                this.alert.type = type;
+                setTimeout(() => {
+                    if (this.alert.msg === msg) {
+                        this.alert.msg = '';
+                    }
+                }, 5000);
+            },
+
+            init() {
+                this.loadQueue();
+                this.loadArchive();
+            },
+
+            itemKey(item) {
+                return String(item.record_id) + '_' + String(item.rule_id) + '_' + String(item.event_id || '');
+            },
+
+            totalPages() {
+                const size = Math.max(1, parseInt(this.pageSize, 10) || 20);
+                return Math.max(1, Math.ceil(this.queue.length / size));
+            },
+
+            pagedQueue() {
+                const size = Math.max(1, parseInt(this.pageSize, 10) || 20);
+                const start = (this.currentPage - 1) * size;
+                return this.queue.slice(start, start + size);
+            },
+
+            setPage(page) {
+                const max = this.totalPages();
+                this.currentPage = Math.max(1, Math.min(page, max));
+            },
+
+            onPageSizeChange() {
+                let size = parseInt(this.pageSize, 10);
+                if (isNaN(size) || size < 1) {
+                    size = 1;
                 }
-            }, 5000);
-        },
+                this.pageSize = size;
+                const max = this.totalPages();
+                if (this.currentPage > max) {
+                    this.currentPage = max;
+                }
+                if (this.currentPage < 1) {
+                    this.currentPage = 1;
+                }
+            },
 
-        init() {
-            this.loadQueue();
-            this.loadArchive();
-        },
+            pageStart() {
+                if (this.queue.length === 0) {
+                    return 0;
+                }
+                const size = Math.max(1, parseInt(this.pageSize, 10) || 20);
+                return (this.currentPage - 1) * size + 1;
+            },
 
-        itemKey(item) {
-            return String(item.record_id) + '_' + String(item.rule_id) + '_' + String(item.event_id || '');
-        },
+            pageEnd() {
+                const size = Math.max(1, parseInt(this.pageSize, 10) || 20);
+                return Math.min(this.currentPage * size, this.queue.length);
+            },
 
-        totalPages() {
-            const size = Math.max(1, parseInt(this.pageSize, 10) || 20);
-            return Math.max(1, Math.ceil(this.queue.length / size));
-        },
+            isAllSelected() {
+                return this.queue.length > 0 && this.selected.length === this.queue.length;
+            },
 
-        pagedQueue() {
-            const size = Math.max(1, parseInt(this.pageSize, 10) || 20);
-            const start = (this.currentPage - 1) * size;
-            return this.queue.slice(start, start + size);
-        },
+            toggleSelectAll(e) {
+                if (e.target.checked) {
+                    this.selected = this.queue.map(item => this.itemKey(item));
+                } else {
+                    this.selected = [];
+                }
+            },
 
-        setPage(page) {
-            const max = this.totalPages();
-            this.currentPage = Math.max(1, Math.min(page, max));
-        },
-
-        onPageSizeChange() {
-            let size = parseInt(this.pageSize, 10);
-            if (isNaN(size) || size < 1) {
-                size = 1;
-            }
-            this.pageSize = size;
-            const max = this.totalPages();
-            if (this.currentPage > max) {
-                this.currentPage = max;
-            }
-            if (this.currentPage < 1) {
-                this.currentPage = 1;
-            }
-        },
-
-        pageStart() {
-            if (this.queue.length === 0) {
-                return 0;
-            }
-            const size = Math.max(1, parseInt(this.pageSize, 10) || 20);
-            return (this.currentPage - 1) * size + 1;
-        },
-
-        pageEnd() {
-            const size = Math.max(1, parseInt(this.pageSize, 10) || 20);
-            return Math.min(this.currentPage * size, this.queue.length);
-        },
-
-        isAllSelected() {
-            return this.queue.length > 0 && this.selected.length === this.queue.length;
-        },
-
-        toggleSelectAll(e) {
-            if (e.target.checked) {
-                this.selected = this.queue.map(item => this.itemKey(item));
-            } else {
+            async loadQueue() {
+                this.loadingQueue = true;
                 this.selected = [];
-            }
-        },
-
-        async loadQueue() {
-            this.loadingQueue = true;
-            this.selected = [];
-            this.currentPage = 1;
-            try {
-                const res = await jsmObj.ajax('evaluateQueue', {});
-                if (res.success) {
-                    this.queue = res.queue || [];
-                } else {
-                    this.showAlert(res.error || 'Failed to evaluate queue', 'danger');
+                this.currentPage = 1;
+                try {
+                    const res = await jsmObj.ajax('evaluateQueue', {});
+                    if (res.success) {
+                        this.queue = res.queue || [];
+                    } else {
+                        this.showAlert(res.error || 'Failed to evaluate queue', 'danger');
+                    }
+                } catch (e) {
+                    this.showAlert('Queue evaluation failed: ' + e.message, 'danger');
+                } finally {
+                    this.loadingQueue = false;
                 }
-            } catch (e) {
-                this.showAlert('Queue evaluation failed: ' + e.message, 'danger');
-            } finally {
-                this.loadingQueue = false;
-            }
-        },
+            },
 
-        async generateSelected() {
-            if (this.selected.length === 0) {
-                return;
-            }
-            this.generating = true;
-            const selectedSet = new Set(this.selected);
-            const items = this.queue.filter(item => selectedSet.has(this.itemKey(item)));
-            if (items.length === 0) {
-                this.generating = false;
-                return;
-            }
-
-            try {
-                const res = await jsmObj.ajax('generateLetters', { items: items });
-                if (res.success) {
-                    this.showAlert(`Successfully generated ${res.generated} letter(s).`, 'success');
-                    await this.loadQueue();
-                    await this.loadArchive();
-                } else {
-                    this.showAlert(res.error || 'Generation failed', 'danger');
+            async generateSelected() {
+                if (this.selected.length === 0) {
+                    return;
                 }
-            } catch (e) {
-                this.showAlert('Generation request failed: ' + e.message, 'danger');
-            } finally {
-                this.generating = false;
-            }
-        },
-
-        async generateSingle(item) {
-            this.generating = true;
-            try {
-                const res = await jsmObj.ajax('generateLetters', { items: [item] });
-                if (res.success) {
-                    this.showAlert(`Generated letter for record ${item.record_id}.`, 'success');
-                    await this.loadQueue();
-                    await this.loadArchive();
-                } else {
-                    this.showAlert(res.error || 'Generation failed', 'danger');
+                this.generating = true;
+                const selectedSet = new Set(this.selected);
+                const items = this.queue.filter(item => selectedSet.has(this.itemKey(item)));
+                if (items.length === 0) {
+                    this.generating = false;
+                    return;
                 }
-            } catch (e) {
-                this.showAlert('Generation failed: ' + e.message, 'danger');
-            } finally {
-                this.generating = false;
-            }
-        },
 
-        confirmResolveSingle(item) {
-            this.confirmModal = {
-                show: true,
-                title: 'Mark Letter as Resolved',
-                message: `Are you sure you want to mark the letter "${item.rule_title}" for record ${item.record_id} as resolved / printed? This will update the resolved flag and remove it from the queue.`,
-                action: () => this.resolveSingle(item)
-            };
-        },
-
-        confirmResolveSelected() {
-            if (this.selected.length === 0) return;
-            this.confirmModal = {
-                show: true,
-                title: 'Mark Selected as Resolved',
-                message: `Are you sure you want to mark ${this.selected.length} selected letter(s) as resolved / printed? This will update their resolved flags and remove them from the queue.`,
-                action: () => this.resolveSelected()
-            };
-        },
-
-        confirmBothSelected() {
-            if (this.selected.length === 0) return;
-            this.confirmModal = {
-                show: true,
-                title: 'Generate and Mark Selected as Resolved',
-                message: `Are you sure you want to generate and mark ${this.selected.length} selected letter(s) as resolved / printed?`,
-                action: () => this.generateAndResolveSelected()
-            };
-        },
-
-        executeConfirmAction() {
-            const act = this.confirmModal.action;
-            this.confirmModal.show = false;
-            this.confirmModal.action = null;
-            if (typeof act === 'function') {
-                act();
-            }
-        },
-
-        async resolveSingle(item) {
-            this.generating = true;
-            try {
-                const res = await jsmObj.ajax('resolveLetters', { items: [item] });
-                if (res.success) {
-                    this.showAlert(`Marked record ${item.record_id} as resolved.`, 'success');
-                    await this.loadQueue();
-                } else {
-                    this.showAlert(res.error || 'Failed to mark as resolved', 'danger');
+                try {
+                    const res = await jsmObj.ajax('generateLetters', {
+                        items: items
+                    });
+                    if (res.success) {
+                        this.showAlert(`Successfully generated ${res.generated} letter(s).`, 'success');
+                        await this.loadQueue();
+                        await this.loadArchive();
+                    } else {
+                        this.showAlert(res.error || 'Generation failed', 'danger');
+                    }
+                } catch (e) {
+                    this.showAlert('Generation request failed: ' + e.message, 'danger');
+                } finally {
+                    this.generating = false;
                 }
-            } catch (e) {
-                this.showAlert('Request failed: ' + e.message, 'danger');
-            } finally {
-                this.generating = false;
-            }
-        },
+            },
 
-        async resolveSelected() {
-            if (this.selected.length === 0) return;
-            this.generating = true;
-            const selectedSet = new Set(this.selected);
-            const items = this.queue.filter(item => selectedSet.has(this.itemKey(item)));
-            try {
-                const res = await jsmObj.ajax('resolveLetters', { items: items });
-                if (res.success) {
-                    this.showAlert(`Successfully marked ${res.resolved} letter(s) as resolved.`, 'success');
-                    await this.loadQueue();
-                } else {
-                    this.showAlert(res.error || 'Failed to mark as resolved', 'danger');
+            async generateSingle(item) {
+                this.generating = true;
+                try {
+                    const res = await jsmObj.ajax('generateLetters', {
+                        items: [item]
+                    });
+                    if (res.success) {
+                        this.showAlert(`Generated letter for record ${item.record_id}.`, 'success');
+                        await this.loadQueue();
+                        await this.loadArchive();
+                    } else {
+                        this.showAlert(res.error || 'Generation failed', 'danger');
+                    }
+                } catch (e) {
+                    this.showAlert('Generation failed: ' + e.message, 'danger');
+                } finally {
+                    this.generating = false;
                 }
-            } catch (e) {
-                this.showAlert('Request failed: ' + e.message, 'danger');
-            } finally {
-                this.generating = false;
-            }
-        },
+            },
 
-        async generateAndResolveSelected() {
-            if (this.selected.length === 0) return;
-            this.generating = true;
-            const selectedSet = new Set(this.selected);
-            const items = this.queue.filter(item => selectedSet.has(this.itemKey(item)));
-            try {
-                const res = await jsmObj.ajax('generateAndResolveLetters', { items: items });
-                if (res.success) {
-                    this.showAlert(`Successfully generated ${res.generated} and marked ${res.resolved} letter(s) as resolved.`, 'success');
-                    await this.loadQueue();
-                    await this.loadArchive();
-                } else {
-                    this.showAlert(res.error || 'Action failed', 'danger');
+            confirmResolveSingle(item) {
+                this.confirmModal = {
+                    show: true,
+                    title: 'Mark Letter as Resolved',
+                    message: `Are you sure you want to mark the letter "${item.rule_title}" for record ${item.record_id} as resolved / printed? This will update the resolved flag and remove it from the queue.`,
+                    action: () => this.resolveSingle(item)
+                };
+            },
+
+            confirmResolveSelected() {
+                if (this.selected.length === 0) return;
+                this.confirmModal = {
+                    show: true,
+                    title: 'Mark Selected as Resolved',
+                    message: `Are you sure you want to mark ${this.selected.length} selected letter(s) as resolved / printed? This will update their resolved flags and remove them from the queue.`,
+                    action: () => this.resolveSelected()
+                };
+            },
+
+            confirmBothSelected() {
+                if (this.selected.length === 0) return;
+                this.confirmModal = {
+                    show: true,
+                    title: 'Generate and Mark Selected as Resolved',
+                    message: `Are you sure you want to generate and mark ${this.selected.length} selected letter(s) as resolved / printed?`,
+                    action: () => this.generateAndResolveSelected()
+                };
+            },
+
+            executeConfirmAction() {
+                const act = this.confirmModal.action;
+                this.confirmModal.show = false;
+                this.confirmModal.action = null;
+                if (typeof act === 'function') {
+                    act();
                 }
-            } catch (e) {
-                this.showAlert('Request failed: ' + e.message, 'danger');
-            } finally {
-                this.generating = false;
-            }
-        },
+            },
 
-        archiveTotalPages() {
-            const size = Math.max(1, parseInt(this.archivePageSize, 10) || 20);
-            return Math.max(1, Math.ceil(this.archive.length / size));
-        },
-
-        pagedArchive() {
-            const size = Math.max(1, parseInt(this.archivePageSize, 10) || 20);
-            const start = (this.archiveCurrentPage - 1) * size;
-            return this.archive.slice(start, start + size);
-        },
-
-        setArchivePage(page) {
-            const max = this.archiveTotalPages();
-            this.archiveCurrentPage = Math.max(1, Math.min(page, max));
-        },
-
-        onArchivePageSizeChange() {
-            let size = parseInt(this.archivePageSize, 10);
-            if (isNaN(size) || size < 1) size = 1;
-            this.archivePageSize = size;
-            const max = this.archiveTotalPages();
-            if (this.archiveCurrentPage > max) this.archiveCurrentPage = max;
-            if (this.archiveCurrentPage < 1) this.archiveCurrentPage = 1;
-        },
-
-        archivePageStart() {
-            if (this.archive.length === 0) return 0;
-            const size = Math.max(1, parseInt(this.archivePageSize, 10) || 20);
-            return (this.archiveCurrentPage - 1) * size + 1;
-        },
-
-        archivePageEnd() {
-            const size = Math.max(1, parseInt(this.archivePageSize, 10) || 20);
-            return Math.min(this.archiveCurrentPage * size, this.archive.length);
-        },
-
-        async loadArchive() {
-            this.loadingArchive = true;
-            this.archiveCurrentPage = 1;
-            try {
-                const res = await jsmObj.ajax('getArchive', {});
-                if (res.success) {
-                    this.archive = res.archive || [];
-                } else {
-                    this.showAlert(res.error || 'Failed to load archive', 'danger');
+            async resolveSingle(item) {
+                this.generating = true;
+                try {
+                    const res = await jsmObj.ajax('resolveLetters', {
+                        items: [item]
+                    });
+                    if (res.success) {
+                        this.showAlert(`Marked record ${item.record_id} as resolved.`, 'success');
+                        await this.loadQueue();
+                    } else {
+                        this.showAlert(res.error || 'Failed to mark as resolved', 'danger');
+                    }
+                } catch (e) {
+                    this.showAlert('Request failed: ' + e.message, 'danger');
+                } finally {
+                    this.generating = false;
                 }
-            } catch (e) {
-                this.showAlert('Archive load failed: ' + e.message, 'danger');
-            } finally {
-                this.loadingArchive = false;
-            }
-        },
+            },
 
-        async regenerateFromArchive(item) {
-            this.generating = true;
-            try {
-                const res = await jsmObj.ajax('generateLetters', { items: [{ record_id: item.record, rule_id: item.rule_id }] });
-                if (res.success) {
-                    this.showAlert(`Re-generated letter for record ${item.record}.`, 'success');
-                    await this.loadArchive();
-                    await this.loadQueue();
-                } else {
-                    this.showAlert(res.error || 'Re-generation failed', 'danger');
+            async resolveSelected() {
+                if (this.selected.length === 0) return;
+                this.generating = true;
+                const selectedSet = new Set(this.selected);
+                const items = this.queue.filter(item => selectedSet.has(this.itemKey(item)));
+                try {
+                    const res = await jsmObj.ajax('resolveLetters', {
+                        items: items
+                    });
+                    if (res.success) {
+                        this.showAlert(`Successfully marked ${res.resolved} letter(s) as resolved.`, 'success');
+                        await this.loadQueue();
+                    } else {
+                        this.showAlert(res.error || 'Failed to mark as resolved', 'danger');
+                    }
+                } catch (e) {
+                    this.showAlert('Request failed: ' + e.message, 'danger');
+                } finally {
+                    this.generating = false;
                 }
-            } catch (e) {
-                this.showAlert('Re-generation failed: ' + e.message, 'danger');
-            } finally {
-                this.generating = false;
-            }
-        },
+            },
 
-        handleDrop(e) {
-            this.isDragging = false;
-            const files = e.dataTransfer.files;
-            if (files && files.length > 0) this.uploadFiles(files);
-        },
-
-        handleFileSelect(e) {
-            const files = e.target.files;
-            if (files && files.length > 0) this.uploadFiles(files);
-            e.target.value = '';
-        },
-
-        async uploadFiles(fileList) {
-            const toRead = [];
-            for (let i = 0; i < fileList.length; i++) {
-                const file = fileList[i];
-                if (!file.name.toLowerCase().endsWith('.docx')) {
-                    this.showAlert(`Skipped ${file.name}: only .docx allowed`, 'warning');
-                    continue;
+            async generateAndResolveSelected() {
+                if (this.selected.length === 0) return;
+                this.generating = true;
+                const selectedSet = new Set(this.selected);
+                const items = this.queue.filter(item => selectedSet.has(this.itemKey(item)));
+                try {
+                    const res = await jsmObj.ajax('generateAndResolveLetters', {
+                        items: items
+                    });
+                    if (res.success) {
+                        this.showAlert(`Successfully generated ${res.generated} and marked ${res.resolved} letter(s) as resolved.`, 'success');
+                        await this.loadQueue();
+                        await this.loadArchive();
+                    } else {
+                        this.showAlert(res.error || 'Action failed', 'danger');
+                    }
+                } catch (e) {
+                    this.showAlert('Request failed: ' + e.message, 'danger');
+                } finally {
+                    this.generating = false;
                 }
-                this.uploadQueue.push({
-                    name: file.name,
-                    size: Math.round(file.size / 1024) + ' KB',
-                    status: 'uploading',
-                    error: ''
+            },
+
+            archiveTotalPages() {
+                const size = Math.max(1, parseInt(this.archivePageSize, 10) || 20);
+                return Math.max(1, Math.ceil(this.archive.length / size));
+            },
+
+            pagedArchive() {
+                const size = Math.max(1, parseInt(this.archivePageSize, 10) || 20);
+                const start = (this.archiveCurrentPage - 1) * size;
+                return this.archive.slice(start, start + size);
+            },
+
+            setArchivePage(page) {
+                const max = this.archiveTotalPages();
+                this.archiveCurrentPage = Math.max(1, Math.min(page, max));
+            },
+
+            onArchivePageSizeChange() {
+                let size = parseInt(this.archivePageSize, 10);
+                if (isNaN(size) || size < 1) size = 1;
+                this.archivePageSize = size;
+                const max = this.archiveTotalPages();
+                if (this.archiveCurrentPage > max) this.archiveCurrentPage = max;
+                if (this.archiveCurrentPage < 1) this.archiveCurrentPage = 1;
+            },
+
+            archivePageStart() {
+                if (this.archive.length === 0) return 0;
+                const size = Math.max(1, parseInt(this.archivePageSize, 10) || 20);
+                return (this.archiveCurrentPage - 1) * size + 1;
+            },
+
+            archivePageEnd() {
+                const size = Math.max(1, parseInt(this.archivePageSize, 10) || 20);
+                return Math.min(this.archiveCurrentPage * size, this.archive.length);
+            },
+
+            async loadArchive() {
+                this.loadingArchive = true;
+                this.archiveCurrentPage = 1;
+                try {
+                    const res = await jsmObj.ajax('getArchive', {});
+                    if (res.success) {
+                        this.archive = res.archive || [];
+                    } else {
+                        this.showAlert(res.error || 'Failed to load archive', 'danger');
+                    }
+                } catch (e) {
+                    this.showAlert('Archive load failed: ' + e.message, 'danger');
+                } finally {
+                    this.loadingArchive = false;
+                }
+            },
+
+            async regenerateFromArchive(item) {
+                this.generating = true;
+                try {
+                    const res = await jsmObj.ajax('generateLetters', {
+                        items: [{
+                            record_id: item.record,
+                            rule_id: item.rule_id
+                        }]
+                    });
+                    if (res.success) {
+                        this.showAlert(`Re-generated letter for record ${item.record}.`, 'success');
+                        await this.loadArchive();
+                        await this.loadQueue();
+                    } else {
+                        this.showAlert(res.error || 'Re-generation failed', 'danger');
+                    }
+                } catch (e) {
+                    this.showAlert('Re-generation failed: ' + e.message, 'danger');
+                } finally {
+                    this.generating = false;
+                }
+            },
+
+            handleDrop(e) {
+                this.isDragging = false;
+                const files = e.dataTransfer.files;
+                if (files && files.length > 0) this.uploadFiles(files);
+            },
+
+            handleFileSelect(e) {
+                const files = e.target.files;
+                if (files && files.length > 0) this.uploadFiles(files);
+                e.target.value = '';
+            },
+
+            async uploadFiles(fileList) {
+                const toRead = [];
+                for (let i = 0; i < fileList.length; i++) {
+                    const file = fileList[i];
+                    if (!file.name.toLowerCase().endsWith('.docx')) {
+                        this.showAlert(`Skipped ${file.name}: only .docx allowed`, 'warning');
+                        continue;
+                    }
+                    this.uploadQueue.push({
+                        name: file.name,
+                        size: Math.round(file.size / 1024) + ' KB',
+                        status: 'uploading',
+                        error: ''
+                    });
+                    toRead.push(new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve({
+                            name: file.name,
+                            dataUrl: reader.result
+                        });
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    }));
+                }
+
+                if (toRead.length === 0) return;
+
+                try {
+                    const filesPayload = await Promise.all(toRead);
+                    const data = await jsmObj.ajax('uploadTemplates', {
+                        files: filesPayload
+                    });
+
+                    if (data.success && data.uploaded) {
+                        data.uploaded.forEach(u => {
+                            this.templates.push(u);
+                            const qItem = this.uploadQueue.find(item => item.name === u.name);
+                            if (qItem) qItem.status = 'done';
+                        });
+                        this.showAlert(`Successfully uploaded ${data.uploaded.length} template(s)`, 'success');
+                    } else {
+                        this.showAlert(data.error || 'Failed to upload templates', 'danger');
+                    }
+                } catch (err) {
+                    this.showAlert('Upload request failed: ' + err.message, 'danger');
+                }
+            },
+
+            async deleteTemplate(docId) {
+                if (!confirm('Are you sure you want to delete this template?')) return;
+                try {
+                    const res = await jsmObj.ajax('deleteTemplate', {
+                        doc_id: docId
+                    });
+                    if (res.success) {
+                        this.templates = this.templates.filter(t => t.doc_id != docId);
+                        this.showAlert('Template deleted', 'success');
+                    } else {
+                        this.showAlert(res.error || 'Delete failed', 'danger');
+                    }
+                } catch (e) {
+                    this.showAlert('Delete failed', 'danger');
+                }
+            },
+
+            addRule() {
+                const id = 'rule_' + Date.now();
+                this.rules.push({
+                    id: id,
+                    title: 'New Letter Rule',
+                    enabled: true,
+                    template_doc_id: 0,
+                    event_id: '',
+                    flag_field: 'letter_generated',
+                    printed_flag_field: '',
+                    filename_scheme: '{record}_{letter_name}',
+                    condition: '',
+                    mappings: []
                 });
-                toRead.push(new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve({ name: file.name, dataUrl: reader.result });
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
-                }));
-            }
+            },
 
-            if (toRead.length === 0) return;
+            removeRule(idx) {
+                if (confirm('Delete this letter rule?')) this.rules.splice(idx, 1);
+            },
 
-            try {
-                const filesPayload = await Promise.all(toRead);
-                const data = await jsmObj.ajax('uploadTemplates', { files: filesPayload });
+            onTemplateChange(rule) {
+                const tmpl = this.templates.find(t => t.doc_id == rule.template_doc_id);
+                if (!tmpl || !tmpl.tags) return;
+                const existingTags = (rule.mappings || []).map(m => m.tag);
+                tmpl.tags.forEach(tag => {
+                    if (!existingTags.includes(tag)) {
+                        rule.mappings.push({
+                            tag: tag,
+                            source: '[' + tag.toLowerCase() + ']'
+                        });
+                    }
+                });
+            },
 
-                if (data.success && data.uploaded) {
-                    data.uploaded.forEach(u => {
-                        this.templates.push(u);
-                        const qItem = this.uploadQueue.find(item => item.name === u.name);
-                        if (qItem) qItem.status = 'done';
+            addMapping(rule) {
+                if (!rule.mappings) rule.mappings = [];
+                rule.mappings.push({
+                    tag: '',
+                    source: ''
+                });
+            },
+
+            async saveAllConfiguration() {
+                this.saving = true;
+                try {
+                    const resRules = await jsmObj.ajax('saveLetterRules', {
+                        rules: this.rules
                     });
-                    this.showAlert(`Successfully uploaded ${data.uploaded.length} template(s)`, 'success');
-                } else {
-                    this.showAlert(data.error || 'Failed to upload templates', 'danger');
-                }
-            } catch (err) {
-                this.showAlert('Upload request failed: ' + err.message, 'danger');
-            }
-        },
-
-        async deleteTemplate(docId) {
-            if (!confirm('Are you sure you want to delete this template?')) return;
-            try {
-                const res = await jsmObj.ajax('deleteTemplate', { doc_id: docId });
-                if (res.success) {
-                    this.templates = this.templates.filter(t => t.doc_id != docId);
-                    this.showAlert('Template deleted', 'success');
-                } else {
-                    this.showAlert(res.error || 'Delete failed', 'danger');
-                }
-            } catch (e) {
-                this.showAlert('Delete failed', 'danger');
-            }
-        },
-
-        addRule() {
-            const id = 'rule_' + Date.now();
-            this.rules.push({
-                id: id,
-                title: 'New Letter Rule',
-                enabled: true,
-                template_doc_id: 0,
-                event_id: '',
-                flag_field: 'letter_generated',
-                printed_flag_field: '',
-                filename_scheme: '{record}_{letter_name}',
-                condition: '',
-                mappings: []
-            });
-        },
-
-        removeRule(idx) {
-            if (confirm('Delete this letter rule?')) this.rules.splice(idx, 1);
-        },
-
-        onTemplateChange(rule) {
-            const tmpl = this.templates.find(t => t.doc_id == rule.template_doc_id);
-            if (!tmpl || !tmpl.tags) return;
-            const existingTags = (rule.mappings || []).map(m => m.tag);
-            tmpl.tags.forEach(tag => {
-                if (!existingTags.includes(tag)) {
-                    rule.mappings.push({
-                        tag: tag,
-                        source: '[' + tag.toLowerCase() + ']'
+                    const resSettings = await jsmObj.ajax('saveSettings', {
+                        settings: this.settings
                     });
+
+                    if (resRules.success && resSettings.success) {
+                        this.showAlert('Configuration and rules saved successfully', 'success');
+                        await this.loadQueue();
+                    } else {
+                        this.showAlert((resRules.error || resSettings.error) || 'Failed to save configuration', 'danger');
+                    }
+                } catch (e) {
+                    this.showAlert('Save failed: ' + e.message, 'danger');
+                } finally {
+                    this.saving = false;
                 }
-            });
-        },
-
-        addMapping(rule) {
-            if (!rule.mappings) rule.mappings = [];
-            rule.mappings.push({ tag: '', source: '' });
-        },
-
-        async saveAllConfiguration() {
-            this.saving = true;
-            try {
-                const resRules = await jsmObj.ajax('saveLetterRules', { rules: this.rules });
-                const resSettings = await jsmObj.ajax('saveSettings', { settings: this.settings });
-
-                if (resRules.success && resSettings.success) {
-                    this.showAlert('Configuration and rules saved successfully', 'success');
-                    await this.loadQueue();
-                } else {
-                    this.showAlert((resRules.error || resSettings.error) || 'Failed to save configuration', 'danger');
-                }
-            } catch (e) {
-                this.showAlert('Save failed: ' + e.message, 'danger');
-            } finally {
-                this.saving = false;
             }
-        }
-    };
-}
+        };
+    }
 </script>

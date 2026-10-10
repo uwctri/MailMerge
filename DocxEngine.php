@@ -1,4 +1,5 @@
 <?php
+
 namespace UWMadison\MailMerge;
 
 /**
@@ -8,8 +9,10 @@ namespace UWMadison\MailMerge;
 
 use ZipArchive;
 
-class DocxEngine {
-    public static function extractTags($filePath): array {
+class DocxEngine
+{
+    public static function extractTags($filePath): array
+    {
         if (!file_exists($filePath)) return [];
         $zip = new ZipArchive();
         if ($zip->open($filePath) !== true) return [];
@@ -40,7 +43,8 @@ class DocxEngine {
         return array_values(array_unique(array_filter($tags)));
     }
 
-    public static function merge($templatePath, $data, $outputPath): bool {
+    public static function merge($templatePath, $data, $outputPath): bool
+    {
         if (!file_exists($templatePath)) return false;
         if (!copy($templatePath, $outputPath)) return false;
 
@@ -60,7 +64,8 @@ class DocxEngine {
         return $zip->close();
     }
 
-    private static function replaceXmlPlaceholders($xml, $data): string {
+    private static function replaceXmlPlaceholders($xml, $data): string
+    {
         $xml = preg_replace_callback(
             '/<w:fldSimple[^>]+w:instr=["\'][^"\']*MERGEFIELD\s+([^\s"\'\\]+)[^"\']*["\'][^>]*>.*?<\/w:fldSimple>/is',
             function ($m) use ($data) {

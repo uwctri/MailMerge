@@ -1,4 +1,5 @@
 <?php
+
 namespace UWMadison\MailMerge;
 
 /**
@@ -13,8 +14,10 @@ use REDCap;
 use Files;
 use Piping;
 
-class MailMerge extends AbstractExternalModule {
-    public function checkFileRepoAccess(): array {
+class MailMerge extends AbstractExternalModule
+{
+    public function checkFileRepoAccess(): array
+    {
         if (($GLOBALS['file_repository_enabled'] ?? '1') != '1')
             return ['allowed' => false, 'message' => 'The File Repository is disabled at the system level on this REDCap server. Please contact a system administrator to enable it.'];
 
@@ -28,7 +31,8 @@ class MailMerge extends AbstractExternalModule {
         return ['allowed' => true];
     }
 
-    public function resolvePlaceholders(string $pattern, string $recordId = '', string $letterName = ''): string {
+    public function resolvePlaceholders(string $pattern, string $recordId = '', string $letterName = ''): string
+    {
         $cleanLetter = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $letterName);
         return str_replace(
             ['{record}', '{letter_name}', '{date}', '{timestamp}'],
@@ -37,7 +41,8 @@ class MailMerge extends AbstractExternalModule {
         );
     }
 
-    public function getFolderId($pid, $folderPath, string $recordId = '', string $letterName = ''): int {
+    public function getFolderId($pid, $folderPath, string $recordId = '', string $letterName = ''): int
+    {
         $resolved = $this->resolvePlaceholders((string)$folderPath, $recordId, $letterName);
         $normalized = trim(str_replace('\\', '/', $resolved), '/ ');
         if ($normalized === '') return 0;
@@ -73,7 +78,8 @@ class MailMerge extends AbstractExternalModule {
         return (int)($parentId ?? 0);
     }
 
-    public function addToFileRepoFolder($docId, $pid, $comment, $folderPath = 'MailMerge', string $recordId = '', string $letterName = ''): void {
+    public function addToFileRepoFolder($docId, $pid, $comment, $folderPath = 'MailMerge', string $recordId = '', string $letterName = ''): void
+    {
         REDCap::addFileToRepository($docId, $pid, $comment);
         $folderId = $this->getFolderId($pid, $folderPath, $recordId, $letterName);
         if ($folderId <= 0) return;
@@ -83,13 +89,15 @@ class MailMerge extends AbstractExternalModule {
             $this->query("INSERT IGNORE INTO redcap_docs_folders_files (docs_id, folder_id) VALUES (?, ?)", [(int)$row['docs_id'], $folderId]);
     }
 
-    public function redcap_module_link_check_display($project_id, $link): ?array {
+    public function redcap_module_link_check_display($project_id, $link): ?array
+    {
         $access = $this->checkFileRepoAccess();
         if (!$access['allowed']) return null;
         return $link;
     }
 
-    public function redcap_module_ajax($action, $payload, $project_id, $record) {
+    public function redcap_module_ajax($action, $payload, $project_id, $record)
+    {
         $access = $this->checkFileRepoAccess();
         if (!$access['allowed']) return ['success' => false, 'error' => $access['message']];
 
@@ -110,7 +118,8 @@ class MailMerge extends AbstractExternalModule {
         return ['success' => false, 'error' => 'Unknown action'];
     }
 
-    public function getProjectConfig($pid): array {
+    public function getProjectConfig($pid): array
+    {
         return [
             'automation_mode' => $this->getProjectSetting('automation_mode', $pid) ?: 'queued',
             'server_output_path' => $this->getProjectSetting('server_output_path', $pid) ?: '',
@@ -119,7 +128,8 @@ class MailMerge extends AbstractExternalModule {
         ];
     }
 
-    public function saveProjectConfig($pid, $cfg): array {
+    public function saveProjectConfig($pid, $cfg): array
+    {
         $this->setProjectSetting('automation_mode', $cfg['automation_mode'] ?? 'queued', $pid);
         $this->setProjectSetting('server_output_path', $cfg['server_output_path'] ?? '', $pid);
         $this->setProjectSetting('file_repo_templates_folder', $cfg['file_repo_templates_folder'] ?? 'MailMerge Templates', $pid);
@@ -127,7 +137,8 @@ class MailMerge extends AbstractExternalModule {
         return ['success' => true];
     }
 
-    public function handleTemplateUploads($pid, $files): array {
+    public function handleTemplateUploads($pid, $files): array
+    {
         if (empty($files)) return ['success' => false, 'error' => 'No files provided'];
         $uploaded = [];
         $errors = [];
@@ -187,11 +198,13 @@ class MailMerge extends AbstractExternalModule {
         ];
     }
 
-    public function getTemplates($pid): array {
+    public function getTemplates($pid): array
+    {
         return $this->getProjectSetting('uploaded_templates', $pid) ?: [];
     }
 
-    public function deleteTemplate($pid, $docId): array {
+    public function deleteTemplate($pid, $docId): array
+    {
         $templates = $this->getTemplates($pid);
         $updated = [];
         foreach ($templates as $t)
@@ -200,16 +213,19 @@ class MailMerge extends AbstractExternalModule {
         return ['success' => true];
     }
 
-    public function getLetterRules($pid): array {
+    public function getLetterRules($pid): array
+    {
         return $this->getProjectSetting('letter_rules', $pid) ?: [];
     }
 
-    public function saveLetterRules($pid, $rules): array {
+    public function saveLetterRules($pid, $rules): array
+    {
         $this->setProjectSetting('letter_rules', $rules, $pid);
         return ['success' => true];
     }
 
-    public function formatValue(string $val, string $format): string {
+    public function formatValue(string $val, string $format): string
+    {
         $fmt = trim($format);
         $lowerFmt = strtolower($fmt);
 
@@ -237,7 +253,8 @@ class MailMerge extends AbstractExternalModule {
         return $val;
     }
 
-    public function resolveMappingSource(string $source, $recordId, $eventId, $pid, array $recordData, array $allRecordEvents = []): string {
+    public function resolveMappingSource(string $source, $recordId, $eventId, $pid, array $recordData, array $allRecordEvents = []): string
+    {
         $clean = trim($source);
         $lower = strtolower($clean);
         $stripped = trim($lower, '[]{}');
@@ -267,7 +284,7 @@ class MailMerge extends AbstractExternalModule {
             $eval = REDCap::evaluateLogic($expr, $pid, $recordId, $eventId, 1, "", "", null, true);
             if (($eval === null || $eval === false || $eval === '') && !empty($allRecordEvents)) {
                 $uniqueEvents = REDCap::isLongitudinal() ? REDCap::getEventNames(true, false) : [];
-                $prefixedExpr = preg_replace_callback('/(?<!\])\[([a-zA-Z0-9_\-]+)\]/', function($m) use ($eventId, $recordData, $allRecordEvents, $uniqueEvents) {
+                $prefixedExpr = preg_replace_callback('/(?<!\])\[([a-zA-Z0-9_\-]+)\]/', function ($m) use ($eventId, $recordData, $allRecordEvents, $uniqueEvents) {
                     $f = $m[1];
                     if (!isset($recordData[$f]) || (string)$recordData[$f] === '') {
                         foreach ($allRecordEvents as $evId => $evRow) {
@@ -289,7 +306,7 @@ class MailMerge extends AbstractExternalModule {
 
         // Support [field:format] and [field]:format syntax within expressions
         if (str_contains($clean, '[')) {
-            $clean = preg_replace_callback('/\[([a-zA-Z0-9_\-]+)(?::([^\]]+))?\](?::([a-zA-Z0-9_\/:\s\-]+))?/', function($m) use ($recordId, $eventId, $pid, $recordData, $allRecordEvents) {
+            $clean = preg_replace_callback('/\[([a-zA-Z0-9_\-]+)(?::([^\]]+))?\](?::([a-zA-Z0-9_\/:\s\-]+))?/', function ($m) use ($recordId, $eventId, $pid, $recordData, $allRecordEvents) {
                 $fName = $m[1];
                 $format = !empty($m[2]) ? $m[2] : (!empty($m[3]) ? $m[3] : '');
                 $pipedVal = Piping::replaceVariablesInLabel('[' . $fName . ']', $recordId, $eventId, 1, [], false, $pid, false);
@@ -328,7 +345,8 @@ class MailMerge extends AbstractExternalModule {
         return $clean;
     }
 
-    public function evaluateQueue($pid): array {
+    public function evaluateQueue($pid): array
+    {
         $rules = $this->getLetterRules($pid);
         if (empty($rules)) return [];
 
@@ -424,7 +442,8 @@ class MailMerge extends AbstractExternalModule {
         return $queue;
     }
 
-    public function generateLetters($pid, $items): array {
+    public function generateLetters($pid, $items): array
+    {
         if (empty($items)) return ['success' => false, 'error' => 'No items selected'];
         $rules = [];
         foreach ($this->getLetterRules($pid) as $r)
@@ -449,7 +468,8 @@ class MailMerge extends AbstractExternalModule {
         return ['success' => true, 'generated' => $generated, 'errors' => $errors];
     }
 
-    public function testMerge($pid, $ruleId, $recordId): array {
+    public function testMerge($pid, $ruleId, $recordId): array
+    {
         $rules = [];
         foreach ($this->getLetterRules($pid) as $r)
             $rules[$r['id']] = $r;
@@ -460,7 +480,8 @@ class MailMerge extends AbstractExternalModule {
         return $this->mergeSingleLetter($pid, $rule, $recordId, true);
     }
 
-    private function mergeSingleLetter($pid, $rule, $recordId, $isTest = false): array {
+    private function mergeSingleLetter($pid, $rule, $recordId, $isTest = false): array
+    {
         $docId = $rule['template_doc_id'];
         if (!$docId) return ['success' => false, 'error' => 'No template associated with rule'];
 
@@ -560,7 +581,8 @@ class MailMerge extends AbstractExternalModule {
         return ['success' => true, 'doc_id' => $outDocId, 'filename' => $filename];
     }
 
-    public function resolveLetters($pid, $items): array {
+    public function resolveLetters($pid, $items): array
+    {
         if (empty($items)) return ['success' => false, 'error' => 'No items specified'];
 
         $rules = [];
@@ -611,7 +633,8 @@ class MailMerge extends AbstractExternalModule {
         return ['success' => true, 'resolved' => $resolved];
     }
 
-    public function generateAndResolveLetters($pid, $items): array {
+    public function generateAndResolveLetters($pid, $items): array
+    {
         $genRes = $this->generateLetters($pid, $items);
         if (!$genRes['success']) return $genRes;
         $resRes = $this->resolveLetters($pid, $items);
@@ -623,7 +646,8 @@ class MailMerge extends AbstractExternalModule {
         ];
     }
 
-    public function getArchive($pid): array {
+    public function getArchive($pid): array
+    {
         $q = $this->queryLogs("SELECT log_id, timestamp, ui_id, record, message, rule_id, rule_title, filename, doc_id, username WHERE message = 'Generated letter' ORDER BY timestamp DESC", []);
         $rows = [];
         $docIds = [];
@@ -678,7 +702,8 @@ class MailMerge extends AbstractExternalModule {
         return $archive;
     }
 
-    public function cronMailMergeLetters($cronInfo): string {
+    public function cronMailMergeLetters($cronInfo): string
+    {
         $pids = $this->getProjectsWithModuleEnabled();
         $total = 0;
         foreach ($pids as $pid) {

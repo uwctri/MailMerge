@@ -1,4 +1,5 @@
 <?php
+
 /** @var \ExternalModules\MailMerge $module */
 $docId = (int)($_GET['doc_id'] ?? 0);
 $pid = (int)($_GET['pid'] ?? 0);
