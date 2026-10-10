@@ -696,8 +696,10 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                     <div class="rule-card rounded-3 p-3 mb-3 position-relative" style="max-width: 100%; overflow: hidden;">
                         <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2 flex-wrap gap-2">
                             <div class="d-flex align-items-center gap-3 flex-wrap">
-                                <span class="badge bg-secondary" x-text="'#' + (idx + 1)"></span>
-                                <input type="text" class="form-control form-control-sm fw-bold" style="max-width: 320px; min-width: 160px;" x-model="r.title" placeholder="Letter Title (e.g. Visit 1 Letter)">
+                                <div class="input-group input-group-sm" style="max-width: 380px; min-width: 200px;">
+                                    <span class="input-group-text bg-secondary text-white fw-bold" x-text="'Rule #' + (idx + 1)"></span>
+                                    <input type="text" class="form-control fw-bold" x-model="r.title" placeholder="Letter Title (e.g. Visit 1 Letter)">
+                                </div>
                                 <div class="form-check form-switch mb-0">
                                     <input class="form-check-input" type="checkbox" :id="'sw_' + r.id" x-model="r.enabled">
                                     <label class="form-check-label small" :for="'sw_' + r.id" x-text="r.enabled ? 'Enabled' : 'Disabled'"></label>
@@ -786,90 +788,86 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                             </div>
                         </div>
 
-                        <div class="bg-white rounded-3 p-3 border" style="max-width: 100%; overflow: hidden;">
-                            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
-                                <span class="fw-bold small text-muted text-uppercase">Merge Field Mappings</span>
-                                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2 small" @click="addMapping(r)">
-                                    <i class="fas fa-plus"></i> Add Tag
+                        <!-- Merge Field Mappings Section -->
+                        <div class="border-top pt-3 mt-3">
+                            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <h6 class="mb-0 fw-bold text-dark text-uppercase small" style="letter-spacing: 0.5px;">
+                                        <i class="fas fa-tags text-primary me-1"></i> Merge Field Mappings
+                                    </h6>
+                                    <span class="badge bg-light text-muted border">Tags</span>
+                                </div>
+                                <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2 small" @click="addMapping(r)">
+                                    <i class="fas fa-plus me-1"></i> Add Tag
                                 </button>
                             </div>
 
-                            <div class="card border bg-light mb-3" style="max-width: 100%;">
-                                <div class="card-header bg-white py-2 px-3 d-flex align-items-center justify-content-between border-bottom">
-                                    <span class="fw-bold small text-dark d-flex align-items-center gap-1">
-                                        <i class="fas fa-info-circle text-primary"></i> Supported Merge Field Syntax & Formatting Guide
-                                    </span>
-                                    <span class="badge bg-light text-muted border">Quick Reference</span>
+                            <div class="row g-2 g-md-3 mb-3">
+                                <!-- Card 1 -->
+                                <div class="col-12 col-md-6 col-xl-3">
+                                    <div class="bg-light border rounded-2 p-2 p-md-3 h-100 d-flex flex-column">
+                                        <div class="fw-bold text-dark small mb-2 d-flex align-items-center gap-1 border-bottom pb-1">
+                                            <i class="fas fa-database text-primary"></i> Fields & Piping
+                                        </div>
+                                        <ul class="list-unstyled small text-muted mb-0 d-flex flex-column gap-1">
+                                            <li><span class="text-secondary fw-semibold">Standard:</span> <code>[first_name]</code></li>
+                                            <li><span class="text-secondary fw-semibold">Event:</span> <code>[baseline][address]</code></li>
+                                            <li><span class="text-secondary fw-semibold">Combined:</span> <code>[first_name] [last_name]</code></li>
+                                            <li><span class="text-secondary fw-semibold">Special:</span> <code>[record_id]</code></li>
+                                            <li class="mt-auto pt-2 text-success" style="font-size: 0.72rem;">
+                                                <i class="fas fa-check-circle me-1"></i>Cross-event fallback enabled
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </div>
-                                <div class="card-body p-2 p-md-3">
-                                    <div class="row g-2 g-md-3">
-                                        <!-- Card 1 -->
-                                        <div class="col-12 col-md-6 col-xl-3">
-                                            <div class="bg-white border rounded-2 p-2 p-md-3 h-100 shadow-sm d-flex flex-column">
-                                                <div class="fw-bold text-dark small mb-2 d-flex align-items-center gap-1 border-bottom pb-1">
-                                                    <i class="fas fa-database text-primary"></i> Fields & Piping
-                                                </div>
-                                                <ul class="list-unstyled small text-muted mb-0 d-flex flex-column gap-1">
-                                                    <li><span class="text-secondary fw-semibold">Standard:</span> <code>[first_name]</code></li>
-                                                    <li><span class="text-secondary fw-semibold">Event:</span> <code>[baseline][address]</code></li>
-                                                    <li><span class="text-secondary fw-semibold">Combined:</span> <code>[first_name] [last_name]</code></li>
-                                                    <li><span class="text-secondary fw-semibold">Special:</span> <code>[record_id]</code></li>
-                                                    <li class="mt-auto pt-2 text-success" style="font-size: 0.72rem;">
-                                                        <i class="fas fa-check-circle me-1"></i>Cross-event fallback enabled
-                                                    </li>
-                                                </ul>
-                                            </div>
-                                        </div>
 
-                                        <!-- Card 2 -->
-                                        <div class="col-12 col-md-6 col-xl-3">
-                                            <div class="bg-white border rounded-2 p-2 p-md-3 h-100 shadow-sm d-flex flex-column">
-                                                <div class="fw-bold text-dark small mb-2 d-flex align-items-center gap-1 border-bottom pb-1">
-                                                    <i class="fas fa-paint-brush text-primary"></i> Formats (<code>:format</code>)
-                                                </div>
-                                                <ul class="list-unstyled small text-muted mb-0 d-flex flex-column gap-1">
-                                                    <li><span class="text-secondary fw-semibold">Date:</span> <code>[dob:m/d/y]</code>, <code>[appt:F j, Y]</code></li>
-                                                    <li><span class="text-secondary fw-semibold">Text Case:</span> <code>[city:upper]</code>, <code>[name:title]</code></li>
-                                                    <li><span class="text-secondary fw-semibold">Currency:</span> <code>[fee:currency]</code> <span class="text-dark">($50.00)</span></li>
-                                                    <li><span class="text-secondary fw-semibold">Decimals:</span> <code>[val:number:2]</code> <span class="text-dark">(12.50)</span></li>
-                                                    <li><span class="text-secondary fw-semibold">Integer:</span> <code>[val:number:0]</code> <span class="text-dark">(13)</span></li>
-                                                </ul>
-                                            </div>
+                                <!-- Card 2 -->
+                                <div class="col-12 col-md-6 col-xl-3">
+                                    <div class="bg-light border rounded-2 p-2 p-md-3 h-100 d-flex flex-column">
+                                        <div class="fw-bold text-dark small mb-2 d-flex align-items-center gap-1 border-bottom pb-1">
+                                            <i class="fas fa-paint-brush text-primary"></i> Formats (<code>:format</code>)
                                         </div>
+                                        <ul class="list-unstyled small text-muted mb-0 d-flex flex-column gap-1">
+                                            <li><span class="text-secondary fw-semibold">Date:</span> <code>[dob:m/d/y]</code>, <code>[appt:F j, Y]</code></li>
+                                            <li><span class="text-secondary fw-semibold">Text Case:</span> <code>[city:upper]</code>, <code>[name:title]</code></li>
+                                            <li><span class="text-secondary fw-semibold">Currency:</span> <code>[fee:currency]</code> <span class="text-dark">($50.00)</span></li>
+                                            <li><span class="text-secondary fw-semibold">Decimals:</span> <code>[val:number:2]</code> <span class="text-dark">(12.50)</span></li>
+                                            <li><span class="text-secondary fw-semibold">Integer:</span> <code>[val:number:0]</code> <span class="text-dark">(13)</span></li>
+                                        </ul>
+                                    </div>
+                                </div>
 
-                                        <!-- Card 3 -->
-                                        <div class="col-12 col-md-6 col-xl-3">
-                                            <div class="bg-white border rounded-2 p-2 p-md-3 h-100 shadow-sm d-flex flex-column">
-                                                <div class="fw-bold text-dark small mb-2 d-flex align-items-center gap-1 border-bottom pb-1">
-                                                    <i class="fas fa-clock text-primary"></i> Dates & Times
-                                                </div>
-                                                <ul class="list-unstyled small text-muted mb-0 d-flex flex-column gap-1">
-                                                    <li><span class="text-secondary fw-semibold">Today:</span> <code>today</code> &rarr; <span class="text-dark"><?= date('F j, Y') ?></span></li>
-                                                    <li><span class="text-secondary fw-semibold">Date Format:</span> <code>today:m/d/y</code> &rarr; <span class="text-dark"><?= date('m/d/Y') ?></span></li>
-                                                    <li><span class="text-secondary fw-semibold">Now:</span> <code>now</code> &rarr; <span class="text-dark"><?= date('M j, Y g:i A') ?></span></li>
-                                                    <li><span class="text-secondary fw-semibold">Time:</span> <code>time</code> (12h) | <code>time:24</code> (24h)</li>
-                                                    <li><span class="text-secondary fw-semibold">User:</span> <code>[user_name]</code></li>
-                                                </ul>
-                                            </div>
+                                <!-- Card 3 -->
+                                <div class="col-12 col-md-6 col-xl-3">
+                                    <div class="bg-light border rounded-2 p-2 p-md-3 h-100 d-flex flex-column">
+                                        <div class="fw-bold text-dark small mb-2 d-flex align-items-center gap-1 border-bottom pb-1">
+                                            <i class="fas fa-clock text-primary"></i> Dates & Times
                                         </div>
+                                        <ul class="list-unstyled small text-muted mb-0 d-flex flex-column gap-1">
+                                            <li><span class="text-secondary fw-semibold">Today:</span> <code>today</code> &rarr; <span class="text-dark"><?= date('F j, Y') ?></span></li>
+                                            <li><span class="text-secondary fw-semibold">Date Format:</span> <code>today:m/d/y</code> &rarr; <span class="text-dark"><?= date('m/d/Y') ?></span></li>
+                                            <li><span class="text-secondary fw-semibold">Now:</span> <code>now</code> &rarr; <span class="text-dark"><?= date('M j, Y g:i A') ?></span></li>
+                                            <li><span class="text-secondary fw-semibold">Time:</span> <code>time</code> (12h) | <code>time:24</code> (24h)</li>
+                                            <li><span class="text-secondary fw-semibold">User:</span> <code>[user_name]</code></li>
+                                        </ul>
+                                    </div>
+                                </div>
 
-                                        <!-- Card 4 -->
-                                        <div class="col-12 col-md-6 col-xl-3">
-                                            <div class="bg-white border rounded-2 p-2 p-md-3 h-100 shadow-sm d-flex flex-column">
-                                                <div class="fw-bold text-dark small mb-2 d-flex align-items-center gap-1 border-bottom pb-1">
-                                                    <i class="fas fa-code-branch text-primary"></i> Logic & Conditions
-                                                </div>
-                                                <ul class="list-unstyled small text-muted mb-0 d-flex flex-column gap-1">
-                                                    <li><span class="text-secondary fw-semibold">Equality:</span> <code>if([status] = '1', 'Yes', 'No')</code></li>
-                                                    <li><span class="text-secondary fw-semibold">Compare:</span> <code>if([age] >= 18, 'Adult', 'Minor')</code></li>
-                                                    <li><span class="text-secondary fw-semibold">Action Tag:</span> <code>@IF([v] != '', [v], 'N/A')</code></li>
-                                                    <li><span class="text-secondary fw-semibold">Blank Check:</span> <code>if([ph] != '', [ph], 'None')</code></li>
-                                                    <li class="mt-auto pt-1 text-muted fst-italic" style="font-size: 0.72rem;">
-                                                        Plain text renders as static text
-                                                    </li>
-                                                </ul>
-                                            </div>
+                                <!-- Card 4 -->
+                                <div class="col-12 col-md-6 col-xl-3">
+                                    <div class="bg-light border rounded-2 p-2 p-md-3 h-100 d-flex flex-column">
+                                        <div class="fw-bold text-dark small mb-2 d-flex align-items-center gap-1 border-bottom pb-1">
+                                            <i class="fas fa-code-branch text-primary"></i> Logic & Conditions
                                         </div>
+                                        <ul class="list-unstyled small text-muted mb-0 d-flex flex-column gap-1">
+                                            <li><span class="text-secondary fw-semibold">Equality:</span> <code>if([status] = '1', 'Yes', 'No')</code></li>
+                                            <li><span class="text-secondary fw-semibold">Compare:</span> <code>if([age] >= 18, 'Adult', 'Minor')</code></li>
+                                            <li><span class="text-secondary fw-semibold">Action Tag:</span> <code>@IF([v] != '', [v], 'N/A')</code></li>
+                                            <li><span class="text-secondary fw-semibold">Blank Check:</span> <code>if([ph] != '', [ph], 'None')</code></li>
+                                            <li class="mt-auto pt-1 text-muted fst-italic" style="font-size: 0.72rem;">
+                                                Plain text renders as static text
+                                            </li>
+                                        </ul>
                                     </div>
                                 </div>
                             </div>
