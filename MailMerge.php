@@ -102,6 +102,9 @@ class MailMerge extends AbstractExternalModule {
         if ($action === 'saveSettings') return $this->saveProjectConfig($project_id, $payload['settings']);
         if ($action === 'evaluateQueue') return ['success' => true, 'queue' => $this->evaluateQueue($project_id)];
         if ($action === 'generateLetters') return $this->generateLetters($project_id, $payload['items']);
+        if ($action === 'resolveLetters') return $this->resolveLetters($project_id, $payload['items']);
+        if ($action === 'generateAndResolveLetters') return $this->generateAndResolveLetters($project_id, $payload['items']);
+        if ($action === 'getArchive') return ['success' => true, 'archive' => $this->getArchive($project_id)];
         if ($action === 'testMerge') return $this->testMerge($project_id, $payload['rule_id'], $payload['record_id']);
 
         return ['success' => false, 'error' => 'Unknown action'];
@@ -347,12 +350,21 @@ class MailMerge extends AbstractExternalModule {
             $cond = trim($rule['condition'] ?? '');
             $eventId = $rule['event_id'] ?: null;
             $flagField = trim($rule['flag_field'] ?? '');
+            $printedField = trim($rule['printed_flag_field'] ?? '');
+            $completionField = $printedField !== '' ? $printedField : $flagField;
 
-            $loggedRecords = [];
-            if ($flagField === '') {
-                $logRes = $this->queryLogs("SELECT record WHERE message = 'Generated letter' AND rule_id = ?", [$rule['id']]);
+            $resolvedRecords = [];
+            if ($completionField === '') {
+                $logRes = $this->queryLogs("SELECT record WHERE (message = 'Marked letter resolved' OR message = 'Generated letter') AND rule_id = ?", [$rule['id']]);
                 while ($r = $logRes->fetch_assoc())
-                    if (!empty($r['record'])) $loggedRecords[$r['record']] = true;
+                    if (!empty($r['record'])) $resolvedRecords[$r['record']] = true;
+            }
+
+            $generatedRecords = [];
+            if ($flagField === '') {
+                $genRes = $this->queryLogs("SELECT record WHERE message = 'Generated letter' AND rule_id = ?", [$rule['id']]);
+                while ($r = $genRes->fetch_assoc())
+                    if (!empty($r['record'])) $generatedRecords[$r['record']] = true;
             }
 
             foreach ($allData as $recordId => $recordEvents) {
@@ -364,11 +376,19 @@ class MailMerge extends AbstractExternalModule {
                 $primaryEvent = $eventId ?: array_key_first($recordEvents);
                 $row = $recordEvents[$primaryEvent] ?? [];
 
-                if ($flagField !== '') {
-                    $val = trim((string)($row[$flagField] ?? ''));
+                if ($completionField !== '') {
+                    $val = trim((string)($row[$completionField] ?? ''));
                     if ($val !== '' && $val !== '0') continue;
-                } else if (isset($loggedRecords[$recordId])) {
+                } else if (isset($resolvedRecords[$recordId])) {
                     continue;
+                }
+
+                $isGenerated = false;
+                if ($flagField !== '') {
+                    $gVal = trim((string)($row[$flagField] ?? ''));
+                    if ($gVal !== '' && $gVal !== '0') $isGenerated = true;
+                } else if (isset($generatedRecords[$recordId])) {
+                    $isGenerated = true;
                 }
 
                 $eventName = !empty($eventNames[$primaryEvent]) ? $eventNames[$primaryEvent] : 'Default';
@@ -396,6 +416,7 @@ class MailMerge extends AbstractExternalModule {
                     'event_id' => $primaryEvent,
                     'event_name' => $eventName,
                     'recipient' => $recipient,
+                    'is_generated' => $isGenerated,
                 ];
             }
         }
@@ -533,9 +554,125 @@ class MailMerge extends AbstractExternalModule {
                 'rule_title' => $rule['title'],
                 'filename' => $filename,
                 'doc_id' => $outDocId,
+                'username' => defined('USERID') ? USERID : 'System',
             ]);
 
         return ['success' => true, 'doc_id' => $outDocId, 'filename' => $filename];
+    }
+
+    public function resolveLetters($pid, $items): array {
+        if (empty($items)) return ['success' => false, 'error' => 'No items specified'];
+
+        $rules = [];
+        foreach ($this->getLetterRules($pid) as $r)
+            $rules[$r['id']] = $r;
+
+        $resolved = 0;
+        $username = defined('USERID') ? USERID : 'System';
+
+        foreach ($items as $item) {
+            $recordId = $item['record_id'] ?? null;
+            $ruleId = $item['rule_id'] ?? null;
+            $rule = $rules[$ruleId] ?? null;
+            if (!$recordId || !$rule) continue;
+
+            $eventId = $rule['event_id'] ?: null;
+            $printedField = trim($rule['printed_flag_field'] ?? '');
+            $targetField = $printedField !== '' ? $printedField : trim($rule['flag_field'] ?? '');
+
+            if ($targetField !== '') {
+                $flagValue = '1';
+                $dict = REDCap::getDataDictionary($pid, 'array', false, [$targetField]);
+                $valType = $dict[$targetField]['text_validation_type_or_show_slider_number'] ?? '';
+                if (str_starts_with($valType, 'datetime_seconds')) $flagValue = date('Y-m-d H:i:s');
+                else if (str_starts_with($valType, 'datetime')) $flagValue = date('Y-m-d H:i');
+                else if (str_starts_with($valType, 'date')) $flagValue = date('Y-m-d');
+
+                $eventName = $eventId ? REDCap::getEventNames(true, false, $eventId) : null;
+                $saveData = [
+                    'record_id' => $recordId,
+                    $targetField => $flagValue,
+                ];
+                if ($eventName) $saveData['redcap_event_name'] = $eventName;
+                REDCap::saveData($pid, 'json', json_encode([$saveData]));
+            }
+
+            $this->log('Marked letter resolved', [
+                'project_id' => $pid,
+                'record' => $recordId,
+                'rule_id' => $rule['id'],
+                'rule_title' => $rule['title'],
+                'username' => $username,
+            ]);
+
+            $resolved++;
+        }
+
+        return ['success' => true, 'resolved' => $resolved];
+    }
+
+    public function generateAndResolveLetters($pid, $items): array {
+        $genRes = $this->generateLetters($pid, $items);
+        if (!$genRes['success']) return $genRes;
+        $resRes = $this->resolveLetters($pid, $items);
+        return [
+            'success' => true,
+            'generated' => $genRes['generated'],
+            'resolved' => $resRes['resolved'],
+            'errors' => $genRes['errors'] ?? [],
+        ];
+    }
+
+    public function getArchive($pid): array {
+        $q = $this->queryLogs("SELECT log_id, timestamp, ui_id, record, message, rule_id, rule_title, filename, doc_id, username WHERE message = 'Generated letter' ORDER BY timestamp DESC");
+        $rows = [];
+        $docIds = [];
+        $uiIds = [];
+
+        while ($r = $q->fetch_assoc()) {
+            if (!empty($r['doc_id'])) $docIds[] = (int)$r['doc_id'];
+            if (!empty($r['ui_id'])) $uiIds[] = (int)$r['ui_id'];
+            $rows[] = $r;
+        }
+
+        $userMap = [];
+        if (!empty($uiIds)) {
+            $inClause = implode(',', array_unique($uiIds));
+            $uRes = $this->query("SELECT ui_id, username FROM redcap_user_information WHERE ui_id IN ($inClause)");
+            while ($uRow = $uRes->fetch_assoc())
+                $userMap[$uRow['ui_id']] = $uRow['username'];
+        }
+
+        $validDocs = [];
+        if (!empty($docIds)) {
+            $inDoc = implode(',', array_unique($docIds));
+            $dRes = $this->query("SELECT doc_id FROM redcap_edocs_metadata WHERE doc_id IN ($inDoc) AND project_id = ? AND delete_date IS NULL", [$pid]);
+            while ($dRow = $dRes->fetch_assoc())
+                $validDocs[(int)$dRow['doc_id']] = true;
+        }
+
+        $archive = [];
+        foreach ($rows as $r) {
+            $docId = (int)($r['doc_id'] ?? 0);
+            $hasFile = isset($validDocs[$docId]);
+            $username = !empty($r['username']) ? $r['username'] : ($userMap[$r['ui_id']] ?? (defined('USERID') ? USERID : 'System'));
+
+            $archive[] = [
+                'log_id' => $r['log_id'],
+                'record' => $r['record'],
+                'rule_id' => $r['rule_id'],
+                'rule_title' => $r['rule_title'] ?: 'Letter',
+                'filename' => $r['filename'] ?: "letter_{$r['record']}.docx",
+                'doc_id' => $docId,
+                'has_file' => $hasFile,
+                'download_url' => $hasFile ? ($this->getUrl('download.php') . '&doc_id=' . $docId) : null,
+                'username' => $username,
+                'timestamp' => $r['timestamp'],
+                'formatted_date' => date('M j, Y g:i A', strtotime($r['timestamp'])),
+            ];
+        }
+
+        return $archive;
     }
 
     public function cronMailMergeLetters($cronInfo): string {

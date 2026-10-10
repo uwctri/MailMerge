@@ -143,12 +143,37 @@ $alpineUrl = $module->getUrl('alpine.min.js');
         <div class="d-flex gap-2">
             <!-- Queue Tab Actions -->
             <template x-if="activeTab === 'queue'">
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-primary btn-sm px-3 shadow-sm fw-bold" @click="generateSelected()" :disabled="selected.length === 0 || generating">
-                        <i class="fas me-1" :class="generating ? 'fa-spinner fa-spin' : 'fa-file-export'"></i>
-                        <span x-text="generating ? 'Generating...' : ('Generate Selected (' + selected.length + ')')"></span>
+                <div class="dropdown">
+                    <button type="button" class="btn btn-primary btn-sm px-3 shadow-sm fw-bold dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" :disabled="selected.length === 0 || generating">
+                        <i class="fas me-1" :class="generating ? 'fa-spinner fa-spin' : 'fa-tasks'"></i>
+                        <span x-text="generating ? 'Processing...' : ('Actions (' + selected.length + ')')"></span>
                     </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow">
+                        <li>
+                            <button type="button" class="dropdown-item py-2" @click="generateSelected()">
+                                <i class="fas fa-print text-primary me-2"></i>Generate Selected
+                            </button>
+                        </li>
+                        <li>
+                            <button type="button" class="dropdown-item py-2" @click="confirmResolveSelected()">
+                                <i class="fas fa-check text-success me-2"></i>Mark Selected as Resolved
+                            </button>
+                        </li>
+                        <li><hr class="dropdown-divider my-1"></li>
+                        <li>
+                            <button type="button" class="dropdown-item py-2" @click="confirmBothSelected()">
+                                <i class="fas fa-magic text-primary me-2"></i>Both (Generate & Mark Resolved)
+                            </button>
+                        </li>
+                    </ul>
                 </div>
+            </template>
+
+            <!-- Archive Tab Actions -->
+            <template x-if="activeTab === 'archive'">
+                <button type="button" class="btn btn-outline-secondary btn-sm" @click="loadArchive()" :disabled="loadingArchive">
+                    <i class="fas me-1" :class="loadingArchive ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i> Refresh Archive
+                </button>
             </template>
 
             <!-- Configuration Tab Actions -->
@@ -182,6 +207,12 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             </button>
         </li>
         <li class="nav-item">
+            <button class="nav-link" :class="{ 'active': activeTab === 'archive' }" @click="activeTab = 'archive'; if (archive.length === 0) loadArchive();">
+                <i class="fas fa-archive me-1"></i> Archive
+                <span class="badge bg-secondary ms-1" x-text="archive.length" x-show="archive.length > 0"></span>
+            </button>
+        </li>
+        <li class="nav-item">
             <button class="nav-link" :class="{ 'active': activeTab === 'config' }" @click="activeTab = 'config'">
                 <i class="fas fa-cogs me-1"></i> Configuration
                 <span class="badge bg-light text-muted border ms-1" x-text="rules.length" x-show="rules.length > 0"></span>
@@ -194,7 +225,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
         <div class="card shadow" style="overflow: hidden;">
             <div class="card-header py-3 d-flex align-items-center justify-content-between">
                 <div class="d-flex align-items-center gap-2">
-                    <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-tasks me-2"></i>Letters Due</h5>
+                    <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-tasks me-2 text-primary"></i>Letters Due</h5>
                     <span class="badge bg-primary" x-text="queue.length + ' Pending'"></span>
                 </div>
             </div>
@@ -213,7 +244,8 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                         <th>Recipient</th>
                                         <th>Letter Title</th>
                                         <th>Event</th>
-                                        <th class="text-end" style="width: 50px;"></th>
+                                        <th>Status</th>
+                                        <th class="text-end" style="width: 90px;"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -228,10 +260,23 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                                 <span class="badge bg-light text-dark border" x-text="item.rule_title"></span>
                                             </td>
                                             <td class="small text-muted" x-text="item.event_name || 'Default'"></td>
+                                            <td>
+                                                <span class="badge bg-info text-dark" x-show="item.is_generated">
+                                                    <i class="fas fa-file-alt me-1"></i>Generated
+                                                </span>
+                                                <span class="badge bg-light text-muted border" x-show="!item.is_generated">
+                                                    <i class="fas fa-clock me-1"></i>Due
+                                                </span>
+                                            </td>
                                             <td class="text-end">
-                                                <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2" title="Generate Letter" @click="generateSingle(item)" :disabled="generating">
-                                                    <i class="fas fa-print"></i>
-                                                </button>
+                                                <div class="d-flex align-items-center justify-content-end gap-1">
+                                                    <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2" title="Generate Letter" @click="generateSingle(item)" :disabled="generating">
+                                                        <i class="fas fa-print"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-success btn-sm py-1 px-2" title="Mark as Resolved / Printed" @click="confirmResolveSingle(item)" :disabled="generating">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     </template>
@@ -301,10 +346,10 @@ $alpineUrl = $module->getUrl('alpine.min.js');
     </div>
 
     <!-- TAB 2: TEMPLATE LIBRARY -->
-    <div x-show="activeTab === 'templates'">
-        <div class="card shadow mb-4">
+    <div x-show="activeTab === 'templates'" style="max-width: 100%; overflow-x: hidden;">
+        <div class="card shadow mb-4" style="max-width: 100%; overflow: hidden;">
             <div class="card-header py-3 d-flex align-items-center justify-content-between">
-                <h5 class="mb-0 fw-bold text-primary"><i class="fas fa-file-word me-2"></i>Template Library</h5>
+                <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-file-word me-2 text-primary"></i>Template Library</h5>
                 <span class="badge bg-light text-dark border" x-text="templates.length + ' Templates'"></span>
             </div>
             <div class="card-body">
@@ -349,8 +394,8 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                 </div>
 
                 <!-- Stored Templates -->
-                <div class="table-responsive" x-show="templates.length > 0">
-                    <table class="table table-hover align-middle mb-0">
+                <div class="table-responsive" style="overflow-x: hidden;" x-show="templates.length > 0">
+                    <table class="table table-hover align-middle mb-0 w-100" style="table-layout: auto;">
                         <thead class="table-light small text-muted text-uppercase">
                             <tr>
                                 <th>Template Name</th>
@@ -394,10 +439,125 @@ $alpineUrl = $module->getUrl('alpine.min.js');
         </div>
     </div>
 
-    <!-- TAB 3: CONFIGURATION -->
-    <div x-show="activeTab === 'config'">
+    <!-- TAB 3: ARCHIVE -->
+    <div x-show="activeTab === 'archive'" style="max-width: 100%; overflow-x: hidden;">
+        <div class="card shadow mb-4" style="max-width: 100%; overflow: hidden;">
+            <div class="card-header py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-archive me-2 text-primary"></i>Letter Archive</h5>
+                    <span class="badge bg-secondary" x-text="archive.length + ' Logged Letters'"></span>
+                </div>
+                <button type="button" class="btn btn-outline-secondary btn-sm" @click="loadArchive()" :disabled="loadingArchive">
+                    <i class="fas me-1" :class="loadingArchive ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i> Refresh
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <!-- Archive Table & Pagination -->
+                <template x-if="!loadingArchive && archive.length > 0">
+                    <div>
+                        <div class="table-responsive" style="overflow-x: hidden;">
+                            <table class="table table-hover align-middle mb-0 w-100" style="table-layout: auto;">
+                                <thead class="table-light small text-muted text-uppercase">
+                                    <tr>
+                                        <th>Record ID</th>
+                                        <th>Letter Title</th>
+                                        <th>Generated Date</th>
+                                        <th>Generated By</th>
+                                        <th>File Name</th>
+                                        <th class="text-end" style="width: 160px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="item in pagedArchive()" :key="item.log_id">
+                                        <tr>
+                                            <td class="fw-bold text-primary" x-text="item.record"></td>
+                                            <td>
+                                                <span class="badge bg-light text-dark border" x-text="item.rule_title"></span>
+                                            </td>
+                                            <td class="small text-muted" x-text="item.formatted_date"></td>
+                                            <td>
+                                                <span class="small fw-semibold text-secondary">
+                                                    <i class="fas fa-user text-muted me-1"></i>
+                                                    <span x-text="item.username"></span>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="small font-monospace text-truncate d-inline-block" style="max-width: 260px;" x-text="item.filename"></span>
+                                            </td>
+                                            <td class="text-end">
+                                                <div class="d-flex align-items-center justify-content-end gap-1">
+                                                    <template x-if="item.download_url">
+                                                        <a :href="item.download_url" class="btn btn-outline-primary btn-sm py-1 px-2" title="Download Letter" target="_blank">
+                                                            <i class="fas fa-download me-1"></i> Download
+                                                        </a>
+                                                    </template>
+                                                    <template x-if="!item.download_url">
+                                                        <span class="badge bg-light text-muted border me-1">Missing</span>
+                                                    </template>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" title="Re-generate Letter" @click="regenerateFromArchive(item)" :disabled="generating">
+                                                        <i class="fas fa-sync-alt"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Archive Pagination Footer -->
+                        <div class="d-flex align-items-center justify-content-between p-3 border-top bg-light flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-2 text-muted small">
+                                <span>Showing <strong class="text-dark" x-text="archivePageStart()"></strong> to <strong class="text-dark" x-text="archivePageEnd()"></strong> of <strong class="text-dark" x-text="archive.length"></strong> records</span>
+                                <span class="mx-2 text-muted">|</span>
+                                <label for="archivePageSizeInput" class="me-1">Per page:</label>
+                                <input id="archivePageSizeInput" type="number" min="1" step="1" class="form-control form-control-sm text-center bg-white" style="width: 70px;" x-model.number="archivePageSize" @input="onArchivePageSizeChange()">
+                            </div>
+                            <div class="d-flex align-items-center gap-1" x-show="archiveTotalPages() > 1">
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" :disabled="archiveCurrentPage <= 1" @click="setArchivePage(1)" title="First Page">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" :disabled="archiveCurrentPage <= 1" @click="setArchivePage(archiveCurrentPage - 1)" title="Previous Page">
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <span class="small text-muted mx-2">
+                                    Page <strong class="text-dark" x-text="archiveCurrentPage"></strong> of <strong class="text-dark" x-text="archiveTotalPages()"></strong>
+                                </span>
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" :disabled="archiveCurrentPage >= archiveTotalPages()" @click="setArchivePage(archiveCurrentPage + 1)" title="Next Page">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" :disabled="archiveCurrentPage >= archiveTotalPages()" @click="setArchivePage(archiveTotalPages())" title="Last Page">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Loading State -->
+                <template x-if="loadingArchive">
+                    <div class="d-flex flex-column align-items-center justify-content-center text-center py-5 w-100">
+                        <i class="fas fa-spinner fa-spin fa-2x mb-2 text-primary"></i>
+                        <p class="small text-muted mb-0">Loading generated letters from module log...</p>
+                    </div>
+                </template>
+
+                <!-- Empty State -->
+                <template x-if="!loadingArchive && archive.length === 0">
+                    <div class="d-flex flex-column align-items-center justify-content-center text-center py-5 w-100">
+                        <i class="fas fa-history fa-3x text-muted mb-3 opacity-50"></i>
+                        <h5 class="fw-bold text-dark">No Letters in Archive</h5>
+                        <p class="small text-muted mb-0">No letters have been generated by MailMerge yet.</p>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 4: CONFIGURATION -->
+    <div x-show="activeTab === 'config'" style="max-width: 100%; overflow-x: hidden;">
         <!-- Automation & Delivery Section -->
-        <div class="card shadow mb-4">
+        <div class="card shadow mb-4" style="max-width: 100%; overflow: hidden;">
             <div class="card-header py-3">
                 <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-robot me-2 text-primary"></i>Automation & Storage Settings</h5>
             </div>
@@ -467,20 +627,20 @@ $alpineUrl = $module->getUrl('alpine.min.js');
         </div>
 
         <!-- Rules & Logic Section -->
-        <div class="card shadow mb-4">
-            <div class="card-header py-3 d-flex align-items-center justify-content-between">
-                <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-cogs me-2"></i>Letter Rules & Logic</h5>
+        <div class="card shadow mb-4" style="max-width: 100%; overflow: hidden;">
+            <div class="card-header py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-cogs me-2 text-primary"></i>Letter Rules & Logic</h5>
                 <button type="button" class="btn btn-primary btn-sm" @click="addRule()">
                     <i class="fas fa-plus me-1"></i> Add Letter Rule
                 </button>
             </div>
             <div class="card-body">
                 <template x-for="(r, idx) in rules" :key="r.id">
-                    <div class="rule-card rounded-3 p-3 mb-3 position-relative">
-                        <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
-                            <div class="d-flex align-items-center gap-3">
+                    <div class="rule-card rounded-3 p-3 mb-3 position-relative" style="max-width: 100%; overflow: hidden;">
+                        <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2 flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-3 flex-wrap">
                                 <span class="badge bg-secondary" x-text="'#' + (idx + 1)"></span>
-                                <input type="text" class="form-control form-control-sm fw-bold" style="width: 320px;" x-model="r.title" placeholder="Letter Title (e.g. Visit 1 Letter)">
+                                <input type="text" class="form-control form-control-sm fw-bold" style="max-width: 320px; min-width: 160px;" x-model="r.title" placeholder="Letter Title (e.g. Visit 1 Letter)">
                                 <div class="form-check form-switch mb-0">
                                     <input class="form-check-input" type="checkbox" :id="'sw_' + r.id" x-model="r.enabled">
                                     <label class="form-check-label small" :for="'sw_' + r.id" x-text="r.enabled ? 'Enabled' : 'Disabled'"></label>
@@ -494,7 +654,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                         </div>
 
                         <div class="row g-3 mb-3">
-                            <div class="col-md-4">
+                            <div class="<?= $isLongitudinal ? 'col-md-3' : 'col-md-4' ?>">
                                 <label class="form-label small fw-bold">Template File (.docx)</label>
                                 <select class="form-select form-select-sm" x-model="r.template_doc_id" @change="onTemplateChange(r)">
                                     <option value="0">-- Select Template --</option>
@@ -505,7 +665,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                             </div>
 
                             <?php if ($isLongitudinal): ?>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label small fw-bold d-flex align-items-center">
                                     Target Event
                                     <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
@@ -524,17 +684,30 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                             </div>
                             <?php endif; ?>
 
-                            <div class="col-md-4">
+                            <div class="<?= $isLongitudinal ? 'col-md-3' : 'col-md-4' ?>">
                                 <label class="form-label small fw-bold d-flex align-items-center">
-                                    Flag Field
+                                    Generated Flag Field
                                     <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
                                         <i class="fas fa-info-circle text-muted cursor-pointer"></i>
                                         <div x-show="tip" x-transition class="hover-tip">
-                                            A field updated when the letter is generated so it won't be generated again. If a date or datetime field is selected, it will be set to the current date/time. Otherwise, it will be set to 1.
+                                            A field updated when the letter is generated. If a date or datetime field is selected, it will be set to current date/time. Otherwise, set to 1.
                                         </div>
                                     </span>
                                 </label>
-                                <input type="text" class="form-control form-control-sm" list="fieldsList" x-model="r.flag_field" placeholder="e.g. letter_generated or ltr_sent_dt">
+                                <input type="text" class="form-control form-control-sm" list="fieldsList" x-model="r.flag_field" placeholder="e.g. letter_generated or ltr_dt">
+                            </div>
+
+                            <div class="<?= $isLongitudinal ? 'col-md-3' : 'col-md-4' ?>">
+                                <label class="form-label small fw-bold d-flex align-items-center">
+                                    Printed / Resolved Flag Field
+                                    <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
+                                        <i class="fas fa-info-circle text-muted cursor-pointer"></i>
+                                        <div x-show="tip" x-transition class="hover-tip">
+                                            Optional field updated when marked resolved/printed. If configured, letters stay in the queue until marked resolved. If blank, Generated Flag clears the queue.
+                                        </div>
+                                    </span>
+                                </label>
+                                <input type="text" class="form-control form-control-sm" list="fieldsList" x-model="r.printed_flag_field" placeholder="e.g. letter_printed or ltr_sent_dt">
                             </div>
 
                             <div class="col-md-6">
@@ -556,39 +729,39 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                             </div>
                         </div>
 
-                        <div class="bg-white rounded-3 p-3 border">
-                            <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="bg-white rounded-3 p-3 border" style="max-width: 100%; overflow: hidden;">
+                            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
                                 <span class="fw-bold small text-muted text-uppercase">Merge Field Mappings</span>
                                 <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2 small" @click="addMapping(r)">
                                     <i class="fas fa-plus"></i> Add Tag
                                 </button>
                             </div>
 
-                            <div class="alert alert-light border small text-muted mb-3 py-2 px-3">
+                            <div class="alert alert-light border small text-muted mb-3 py-2 px-3" style="overflow-wrap: break-word; word-break: break-word;">
                                 <div class="fw-bold text-dark mb-1 d-flex align-items-center gap-1">
                                     <i class="fas fa-info-circle text-primary"></i> Supported Expressions & Formats
                                 </div>
                                 <div class="row g-2">
-                                    <div class="col-md-3">
+                                    <div class="col-12 col-md-6 col-xl-3">
                                         <div class="fw-semibold text-dark">Fields & Piping</div>
                                         <code>[field_name]</code> or <code>[event][field]</code><br>
                                         Compound: <code>[first_name] [last_name]</code><br>
                                         <span class="text-success small"><i class="fas fa-check-circle me-1"></i>Auto cross-event fallback</span>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-12 col-md-6 col-xl-3">
                                         <div class="fw-semibold text-dark">Formatted Values (<code>:format</code>)</div>
                                         Dates: <code>[dob:m/d/y]</code>, <code>[appt:F j, Y]</code><br>
                                         Case: <code>[name:upper]</code>, <code>[name:title]</code><br>
                                         Numbers: <code>[amt:currency]</code>, <code>[val:number:2]</code>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-12 col-md-6 col-xl-3">
                                         <div class="fw-semibold text-dark">Dynamic Dates & Times</div>
                                         <code>today</code> &rarr; <em><?= date('F j, Y') ?></em> (or <code>today:m/d/y</code>)<br>
                                         <code>now</code> &rarr; <em><?= date('F j, Y g:i A') ?></em><br>
                                         <code>now:format</code> &rarr; e.g. <code>now:24</code>, <code>now:Y-m-d</code><br>
                                         <code>time</code> (12h) | <code>time:24</code> &rarr; <em><?= date('H:i') ?></em>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-12 col-md-6 col-xl-3">
                                         <div class="fw-semibold text-dark">If Statements & Logic</div>
                                         <code>if([score] >= 70, 'Pass', 'Fail')</code><br>
                                         <code>@IF([gender] = '1', 'Male', 'Female')</code><br>
@@ -598,8 +771,8 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                 </div>
                             </div>
 
-                            <div class="table-responsive">
-                                <table class="table table-sm align-middle mb-0">
+                            <div class="table-responsive" style="overflow-x: hidden;">
+                                <table class="table table-sm align-middle mb-0 w-100" style="table-layout: auto;">
                                     <thead class="table-light small text-muted">
                                         <tr>
                                             <th style="width: 35%;">Word Template Tag</th>
@@ -655,6 +828,25 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             <option value="[<?= htmlspecialchars($f, ENT_QUOTES) ?>]">[<?= htmlspecialchars($f, ENT_QUOTES) ?>]</option>
         <?php endforeach; ?>
     </datalist>
+
+    <!-- Confirmation Modal -->
+    <div x-show="confirmModal.show" x-cloak class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1055;" role="dialog" @click.self="confirmModal.show = false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow border-0">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" x-text="confirmModal.title">Confirm Action</h5>
+                    <button type="button" class="btn-close" @click="confirmModal.show = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0" x-text="confirmModal.message"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" @click="confirmModal.show = false">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" @click="executeConfirmAction()">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -678,6 +870,17 @@ function mailMergeApp() {
         saving: false,
         alert: { msg: '', type: 'info' },
 
+        archive: [],
+        loadingArchive: false,
+        archivePageSize: 20,
+        archiveCurrentPage: 1,
+        confirmModal: {
+            show: false,
+            title: '',
+            message: '',
+            action: null
+        },
+
         showAlert(msg, type = 'info') {
             this.alert.msg = msg;
             this.alert.type = type;
@@ -690,6 +893,7 @@ function mailMergeApp() {
 
         init() {
             this.loadQueue();
+            this.loadArchive();
         },
 
         itemKey(item) {
@@ -787,6 +991,7 @@ function mailMergeApp() {
                 if (res.success) {
                     this.showAlert(`Successfully generated ${res.generated} letter(s).`, 'success');
                     await this.loadQueue();
+                    await this.loadArchive();
                 } else {
                     this.showAlert(res.error || 'Generation failed', 'danger');
                 }
@@ -804,11 +1009,179 @@ function mailMergeApp() {
                 if (res.success) {
                     this.showAlert(`Generated letter for record ${item.record_id}.`, 'success');
                     await this.loadQueue();
+                    await this.loadArchive();
                 } else {
                     this.showAlert(res.error || 'Generation failed', 'danger');
                 }
             } catch (e) {
                 this.showAlert('Generation failed: ' + e.message, 'danger');
+            } finally {
+                this.generating = false;
+            }
+        },
+
+        confirmResolveSingle(item) {
+            this.confirmModal = {
+                show: true,
+                title: 'Mark Letter as Resolved',
+                message: `Are you sure you want to mark the letter "${item.rule_title}" for record ${item.record_id} as resolved / printed? This will update the resolved flag and remove it from the queue.`,
+                action: () => this.resolveSingle(item)
+            };
+        },
+
+        confirmResolveSelected() {
+            if (this.selected.length === 0) return;
+            this.confirmModal = {
+                show: true,
+                title: 'Mark Selected as Resolved',
+                message: `Are you sure you want to mark ${this.selected.length} selected letter(s) as resolved / printed? This will update their resolved flags and remove them from the queue.`,
+                action: () => this.resolveSelected()
+            };
+        },
+
+        confirmBothSelected() {
+            if (this.selected.length === 0) return;
+            this.confirmModal = {
+                show: true,
+                title: 'Generate and Mark Selected as Resolved',
+                message: `Are you sure you want to generate and mark ${this.selected.length} selected letter(s) as resolved / printed?`,
+                action: () => this.generateAndResolveSelected()
+            };
+        },
+
+        executeConfirmAction() {
+            const act = this.confirmModal.action;
+            this.confirmModal.show = false;
+            this.confirmModal.action = null;
+            if (typeof act === 'function') {
+                act();
+            }
+        },
+
+        async resolveSingle(item) {
+            this.generating = true;
+            try {
+                const res = await jsmObj.ajax('resolveLetters', { items: [item] });
+                if (res.success) {
+                    this.showAlert(`Marked record ${item.record_id} as resolved.`, 'success');
+                    await this.loadQueue();
+                } else {
+                    this.showAlert(res.error || 'Failed to mark as resolved', 'danger');
+                }
+            } catch (e) {
+                this.showAlert('Request failed: ' + e.message, 'danger');
+            } finally {
+                this.generating = false;
+            }
+        },
+
+        async resolveSelected() {
+            if (this.selected.length === 0) return;
+            this.generating = true;
+            const selectedSet = new Set(this.selected);
+            const items = this.queue.filter(item => selectedSet.has(this.itemKey(item)));
+            try {
+                const res = await jsmObj.ajax('resolveLetters', { items: items });
+                if (res.success) {
+                    this.showAlert(`Successfully marked ${res.resolved} letter(s) as resolved.`, 'success');
+                    await this.loadQueue();
+                } else {
+                    this.showAlert(res.error || 'Failed to mark as resolved', 'danger');
+                }
+            } catch (e) {
+                this.showAlert('Request failed: ' + e.message, 'danger');
+            } finally {
+                this.generating = false;
+            }
+        },
+
+        async generateAndResolveSelected() {
+            if (this.selected.length === 0) return;
+            this.generating = true;
+            const selectedSet = new Set(this.selected);
+            const items = this.queue.filter(item => selectedSet.has(this.itemKey(item)));
+            try {
+                const res = await jsmObj.ajax('generateAndResolveLetters', { items: items });
+                if (res.success) {
+                    this.showAlert(`Successfully generated ${res.generated} and marked ${res.resolved} letter(s) as resolved.`, 'success');
+                    await this.loadQueue();
+                    await this.loadArchive();
+                } else {
+                    this.showAlert(res.error || 'Action failed', 'danger');
+                }
+            } catch (e) {
+                this.showAlert('Request failed: ' + e.message, 'danger');
+            } finally {
+                this.generating = false;
+            }
+        },
+
+        archiveTotalPages() {
+            const size = Math.max(1, parseInt(this.archivePageSize, 10) || 20);
+            return Math.max(1, Math.ceil(this.archive.length / size));
+        },
+
+        pagedArchive() {
+            const size = Math.max(1, parseInt(this.archivePageSize, 10) || 20);
+            const start = (this.archiveCurrentPage - 1) * size;
+            return this.archive.slice(start, start + size);
+        },
+
+        setArchivePage(page) {
+            const max = this.archiveTotalPages();
+            this.archiveCurrentPage = Math.max(1, Math.min(page, max));
+        },
+
+        onArchivePageSizeChange() {
+            let size = parseInt(this.archivePageSize, 10);
+            if (isNaN(size) || size < 1) size = 1;
+            this.archivePageSize = size;
+            const max = this.archiveTotalPages();
+            if (this.archiveCurrentPage > max) this.archiveCurrentPage = max;
+            if (this.archiveCurrentPage < 1) this.archiveCurrentPage = 1;
+        },
+
+        archivePageStart() {
+            if (this.archive.length === 0) return 0;
+            const size = Math.max(1, parseInt(this.archivePageSize, 10) || 20);
+            return (this.archiveCurrentPage - 1) * size + 1;
+        },
+
+        archivePageEnd() {
+            const size = Math.max(1, parseInt(this.archivePageSize, 10) || 20);
+            return Math.min(this.archiveCurrentPage * size, this.archive.length);
+        },
+
+        async loadArchive() {
+            this.loadingArchive = true;
+            this.archiveCurrentPage = 1;
+            try {
+                const res = await jsmObj.ajax('getArchive', {});
+                if (res.success) {
+                    this.archive = res.archive || [];
+                } else {
+                    this.showAlert(res.error || 'Failed to load archive', 'danger');
+                }
+            } catch (e) {
+                this.showAlert('Archive load failed: ' + e.message, 'danger');
+            } finally {
+                this.loadingArchive = false;
+            }
+        },
+
+        async regenerateFromArchive(item) {
+            this.generating = true;
+            try {
+                const res = await jsmObj.ajax('generateLetters', { items: [{ record_id: item.record, rule_id: item.rule_id }] });
+                if (res.success) {
+                    this.showAlert(`Re-generated letter for record ${item.record}.`, 'success');
+                    await this.loadArchive();
+                    await this.loadQueue();
+                } else {
+                    this.showAlert(res.error || 'Re-generation failed', 'danger');
+                }
+            } catch (e) {
+                this.showAlert('Re-generation failed: ' + e.message, 'danger');
             } finally {
                 this.generating = false;
             }
@@ -893,6 +1266,7 @@ function mailMergeApp() {
                 template_doc_id: 0,
                 event_id: '',
                 flag_field: 'letter_generated',
+                printed_flag_field: '',
                 filename_scheme: '{record}_{letter_name}',
                 condition: '',
                 mappings: []
