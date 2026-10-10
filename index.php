@@ -51,6 +51,10 @@ $alpineUrl = $module->getUrl('alpine.min.js');
     background-color: #f8faff;
     transition: all 0.2s ease-in-out;
     cursor: pointer;
+    text-align: center !important;
+}
+.drop-zone p, .drop-zone h5 {
+    text-align: center !important;
 }
 .drop-zone.dragover {
     background-color: #e7f1ff;
@@ -261,19 +265,19 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             </div>
             <div class="card-body">
                 <!-- Large Dedicated Drag & Drop Area -->
-                <div class="drop-zone rounded-3 py-5 px-4 text-center mb-4"
+                <div class="drop-zone rounded-3 py-5 px-4 d-flex flex-column align-items-center justify-content-center text-center mb-4"
                      :class="{ 'dragover': isDragging }"
                      @dragover.prevent="isDragging = true"
                      @dragleave.prevent="isDragging = false"
                      @drop.prevent="handleDrop($event)"
                      @click="$refs.fileInput.click()">
                     <input type="file" x-ref="fileInput" class="d-none" multiple accept=".docx" @change="handleFileSelect($event)">
-                    <div class="mb-3">
+                    <div class="mb-3 text-center">
                         <i class="fas fa-cloud-upload-alt text-primary" style="font-size: 3.5rem;"></i>
                     </div>
-                    <h5 class="fw-bold text-dark mb-1">Drag and drop Word (.docx) templates here</h5>
-                    <p class="text-muted small mb-3">or <span class="text-primary text-decoration-underline fw-semibold">click to browse</span> from your computer</p>
-                    <div class="d-flex justify-content-center flex-wrap gap-2">
+                    <h5 class="fw-bold text-dark mb-1 text-center w-100" style="text-align: center !important;">Drag and drop Word (.docx) templates here</h5>
+                    <p class="text-muted small mb-3 text-center w-100" style="text-align: center !important;">or <span class="text-primary text-decoration-underline fw-semibold">click to browse</span> from your computer</p>
+                    <div class="d-flex justify-content-center flex-wrap gap-2 text-center">
                         <span class="badge bg-light text-muted border px-2 py-1 small">Supports uploading multiple templates simultaneously</span>
                         <span class="badge bg-light text-muted border px-2 py-1 small">Extracts merge tags automatically</span>
                     </div>
