@@ -624,7 +624,7 @@ class MailMerge extends AbstractExternalModule {
     }
 
     public function getArchive($pid): array {
-        $q = $this->queryLogs("SELECT log_id, timestamp, ui_id, record, message, rule_id, rule_title, filename, doc_id, username WHERE message = 'Generated letter' ORDER BY timestamp DESC");
+        $q = $this->queryLogs("SELECT log_id, timestamp, ui_id, record, message, rule_id, rule_title, filename, doc_id, username WHERE message = 'Generated letter' ORDER BY timestamp DESC", []);
         $rows = [];
         $docIds = [];
         $uiIds = [];
@@ -637,16 +637,19 @@ class MailMerge extends AbstractExternalModule {
 
         $userMap = [];
         if (!empty($uiIds)) {
-            $inClause = implode(',', array_unique($uiIds));
-            $uRes = $this->query("SELECT ui_id, username FROM redcap_user_information WHERE ui_id IN ($inClause)");
+            $uniqueUiIds = array_values(array_unique($uiIds));
+            $placeholders = implode(',', array_fill(0, count($uniqueUiIds), '?'));
+            $uRes = $this->query("SELECT ui_id, username FROM redcap_user_information WHERE ui_id IN ($placeholders)", $uniqueUiIds);
             while ($uRow = $uRes->fetch_assoc())
                 $userMap[$uRow['ui_id']] = $uRow['username'];
         }
 
         $validDocs = [];
         if (!empty($docIds)) {
-            $inDoc = implode(',', array_unique($docIds));
-            $dRes = $this->query("SELECT doc_id FROM redcap_edocs_metadata WHERE doc_id IN ($inDoc) AND project_id = ? AND delete_date IS NULL", [$pid]);
+            $uniqueDocIds = array_values(array_unique($docIds));
+            $placeholders = implode(',', array_fill(0, count($uniqueDocIds), '?'));
+            $params = array_merge($uniqueDocIds, [$pid]);
+            $dRes = $this->query("SELECT doc_id FROM redcap_edocs_metadata WHERE doc_id IN ($placeholders) AND project_id = ? AND delete_date IS NULL", $params);
             while ($dRow = $dRes->fetch_assoc())
                 $validDocs[(int)$dRow['doc_id']] = true;
         }

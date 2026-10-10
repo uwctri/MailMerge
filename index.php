@@ -125,6 +125,9 @@ $alpineUrl = $module->getUrl('alpine.min.js');
     border-style: solid;
     border-color: #212529 transparent transparent transparent;
 }
+[x-cloak] {
+    display: none !important;
+}
 </style>
 
 <div class="ps-2 pe-3 py-3 w-100" style="max-width: 100%; overflow-x: hidden;" x-data="mailMergeApp()" x-cloak>
@@ -830,23 +833,25 @@ $alpineUrl = $module->getUrl('alpine.min.js');
     </datalist>
 
     <!-- Confirmation Modal -->
-    <div x-show="confirmModal.show" x-cloak class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1055;" role="dialog" @click.self="confirmModal.show = false">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content shadow border-0">
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold" x-text="confirmModal.title">Confirm Action</h5>
-                    <button type="button" class="btn-close" @click="confirmModal.show = false"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="mb-0" x-text="confirmModal.message"></p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary btn-sm" @click="confirmModal.show = false">Cancel</button>
-                    <button type="button" class="btn btn-primary btn-sm" @click="executeConfirmAction()">Confirm</button>
+    <template x-if="confirmModal.show">
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1055;" role="dialog" @click.self="confirmModal.show = false">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content shadow border-0">
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold" x-text="confirmModal.title">Confirm Action</h5>
+                        <button type="button" class="btn-close" @click="confirmModal.show = false"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-0" x-text="confirmModal.message"></p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" @click="confirmModal.show = false">Cancel</button>
+                        <button type="button" class="btn btn-primary btn-sm" @click="executeConfirmAction()">Confirm</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    </template>
 </div>
 
 <script>
