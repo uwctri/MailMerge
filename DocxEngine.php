@@ -29,10 +29,10 @@ class DocxEngine
             $content = $zip->getFromName($xmlFile);
             if ($content === false) continue;
 
-            if (preg_match_all('/<w:fldSimple[^>]+w:instr=["\'][^"\']*MERGEFIELD\s+([^\s"\'\\]+)/i', $content, $m))
+            if (preg_match_all('/<w:fldSimple[^>]+w:instr=["\'][^"\']*MERGEFIELD\s+["\']?([^"\'\s\\\\]+)["\']?/i', $content, $m))
                 foreach ($m[1] as $t) $tags[] = trim($t);
 
-            if (preg_match_all('/<w:instrText[^>]*>\s*MERGEFIELD\s+([^\s"\'\\]+)/i', $content, $m))
+            if (preg_match_all('/<w:instrText[^>]*>\s*MERGEFIELD\s+["\']?([^"\'\s\\\\]+)["\']?/i', $content, $m))
                 foreach ($m[1] as $t) $tags[] = trim($t);
 
             if (preg_match_all('/(?:«|&laquo;|\{\{|\[)([a-zA-Z0-9_\-\.]+)(?:»|&raquo;|\}\}|\])/u', $content, $m))
@@ -57,7 +57,10 @@ class DocxEngine
                 $content = $zip->getFromName($name);
                 if ($content === false) continue;
                 $merged = self::replaceXmlPlaceholders($content, $data);
-                $zip->addFromString($name, $merged);
+                // Safety guard: never overwrite with empty content
+                if (!empty($merged) && strlen($merged) > 10) {
+                    $zip->addFromString($name, $merged);
+                }
             }
         }
 
@@ -66,9 +69,35 @@ class DocxEngine
 
     private static function replaceXmlPlaceholders($xml, $data): string
     {
-        // 1. Handle w:fldSimple MERGEFIELDs: preserve run formatting if present
-        $xml = preg_replace_callback(
-            '/<w:fldSimple[^>]+w:instr=["\'][^"\']*MERGEFIELD\s+([^\s"\'\\]+)[^"\']*["\'][^>]*>(.*?)<\/w:fldSimple>/is',
+        // 1. Handle Word complex MERGEFIELDs:
+        // <w:r>...<w:fldChar w:fldCharType="begin"/>...</w:r>
+        // <w:r>...<w:instrText...> MERGEFIELD Tag ...</w:instrText>...</w:r>
+        // <w:r>...<w:fldChar w:fldCharType="separate"/>...</w:r>
+        // ...<w:t>«Tag»</w:t>...
+        // <w:r>...<w:fldChar w:fldCharType="end"/>...</w:r>
+        $complexPattern = '/<w:r\b[^>]*>.*?<w:fldChar\s+w:fldCharType="begin"\/>.*?<\/w:r>\s*<w:r\b[^>]*>.*?<w:instrText[^>]*>\s*MERGEFIELD\s+["\']?([^"\'\s\\\\]+)["\']?.*?<\/w:instrText>.*?<\/w:r>\s*<w:r\b[^>]*>.*?<w:fldChar\s+w:fldCharType="separate"\/>.*?<\/w:r>(.*?)<w:r\b[^>]*>.*?<w:fldChar\s+w:fldCharType="end"\/>.*?<\/w:r>/is';
+        $xmlMerged = preg_replace_callback(
+            $complexPattern,
+            function ($m) use ($data) {
+                $tag = trim($m[1]);
+                $disp = $m[2];
+                $val = htmlspecialchars($data[$tag] ?? '', ENT_XML1, 'UTF-8');
+                $rPr = '';
+                if (preg_match('/<w:rPr>.*?<\/w:rPr>/is', $disp, $pMatch)) {
+                    $rPr = $pMatch[0];
+                }
+                return "<w:r>{$rPr}<w:t xml:space=\"preserve\">{$val}</w:t></w:r>";
+            },
+            $xml
+        );
+        if ($xmlMerged !== null) {
+            $xml = $xmlMerged;
+        }
+
+        // 2. Handle w:fldSimple MERGEFIELDs: preserve run formatting if present
+        $simplePattern = '/<w:fldSimple[^>]+w:instr=["\'][^"\']*MERGEFIELD\s+["\']?([^"\'\s\\\\]+)["\']?[^"\']*["\'][^>]*>(.*?)<\/w:fldSimple>/is';
+        $xmlMerged = preg_replace_callback(
+            $simplePattern,
             function ($m) use ($data) {
                 $tag = trim($m[1]);
                 $inner = $m[2];
@@ -83,9 +112,12 @@ class DocxEngine
             },
             $xml
         );
+        if ($xmlMerged !== null) {
+            $xml = $xmlMerged;
+        }
 
-        // 2. Safely replace variables inside text nodes (<w:t>...</w:t>)
-        $xml = preg_replace_callback('/<w:t(\b[^>]*)>(.*?)<\/w:t>/is', function ($tMatch) use ($data) {
+        // 3. Safely replace variables inside text nodes (<w:t>...</w:t>)
+        $xmlMerged = preg_replace_callback('/<w:t(\b[^>]*)>(.*?)<\/w:t>/is', function ($tMatch) use ($data) {
             $attrs = $tMatch[1];
             $text = $tMatch[2];
 
@@ -108,6 +140,9 @@ class DocxEngine
 
             return "<w:t{$attrs}>{$text}</w:t>";
         }, $xml);
+        if ($xmlMerged !== null) {
+            $xml = $xmlMerged;
+        }
 
         return $xml;
     }

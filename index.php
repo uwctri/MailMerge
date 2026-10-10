@@ -999,13 +999,39 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             },
 
             showAlert(msg, type = 'info') {
-                this.alert.msg = msg;
-                this.alert.type = type;
-                setTimeout(() => {
-                    if (this.alert.msg === msg) {
-                        this.alert.msg = '';
-                    }
-                }, 5000);
+                if (typeof Swal !== 'undefined') {
+                    const iconMap = {
+                        'success': 'success',
+                        'danger': 'error',
+                        'error': 'error',
+                        'warning': 'warning',
+                        'info': 'info'
+                    };
+                    const swalIcon = iconMap[type] || 'info';
+                    const titleMap = {
+                        'success': 'Success',
+                        'danger': 'Error',
+                        'error': 'Error',
+                        'warning': 'Notice',
+                        'info': 'Information'
+                    };
+                    Swal.fire({
+                        icon: swalIcon,
+                        title: titleMap[type] || 'Notice',
+                        text: msg,
+                        timer: type === 'danger' || type === 'error' ? 3000 : 2000,
+                        timerProgressBar: true,
+                        showConfirmButton: false
+                    });
+                } else {
+                    this.alert.msg = msg;
+                    this.alert.type = type;
+                    setTimeout(() => {
+                        if (this.alert.msg === msg) {
+                            this.alert.msg = '';
+                        }
+                    }, 5000);
+                }
             },
 
             init() {
