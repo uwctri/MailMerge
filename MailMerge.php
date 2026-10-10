@@ -205,6 +205,34 @@ class MailMerge extends AbstractExternalModule {
         return ['success' => true];
     }
 
+    public function formatValue(string $val, string $format): string {
+        $fmt = trim($format);
+        $lowerFmt = strtolower($fmt);
+
+        if ($lowerFmt === 'upper' || $lowerFmt === 'uppercase') return mb_strtoupper($val, 'UTF-8');
+        if ($lowerFmt === 'lower' || $lowerFmt === 'lowercase') return mb_strtolower($val, 'UTF-8');
+        if ($lowerFmt === 'title' || $lowerFmt === 'capitalize') return mb_convert_case(mb_strtolower($val, 'UTF-8'), MB_CASE_TITLE, 'UTF-8');
+        if ($lowerFmt === 'trim') return trim($val);
+
+        if ($lowerFmt === 'currency') return '$' . number_format((float)$val, 2);
+        if (str_starts_with($lowerFmt, 'number:') || str_starts_with($lowerFmt, 'decimal:')) {
+            $decimals = (int)substr($fmt, strpos($fmt, ':') + 1);
+            return number_format((float)$val, $decimals);
+        }
+        if ($lowerFmt === 'number' || $lowerFmt === 'integer' || $lowerFmt === 'int') return number_format((float)$val, 0);
+
+        if ($lowerFmt === '24' || $lowerFmt === 'time:24') $fmt = 'H:i';
+        else if ($lowerFmt === '12' || $lowerFmt === 'time:12') $fmt = 'g:i A';
+        else if ($lowerFmt === 'm/d/y') $fmt = 'm/d/Y';
+        else if ($lowerFmt === 'y-m-d') $fmt = 'Y-m-d';
+        else if ($lowerFmt === 'iso') $fmt = 'Y-m-d H:i:s';
+
+        $ts = strtotime($val);
+        if ($ts !== false) return date($fmt, $ts);
+
+        return $val;
+    }
+
     public function resolveMappingSource(string $source, $recordId, $eventId, $pid, array $recordData): string {
         $clean = trim($source);
         $lower = strtolower($clean);
@@ -214,13 +242,39 @@ class MailMerge extends AbstractExternalModule {
         if ($stripped === 'today:m/d/y' || $stripped === 'today_usa') return date('m/d/Y');
         if ($stripped === 'today:y-m-d' || $stripped === 'date') return date('Y-m-d');
         if (str_starts_with($stripped, 'today:')) return date(substr($stripped, 6));
+
         if ($stripped === 'now') return date('F j, Y g:i A');
+        if ($stripped === 'now:24') return date('H:i');
         if ($stripped === 'now:iso' || $stripped === 'timestamp') return date('Y-m-d H:i:s');
-        if ($stripped === 'time') return date('g:i A');
+        if (str_starts_with($stripped, 'now:')) return date(substr($stripped, 4));
+
+        if ($stripped === 'time' || $stripped === 'time:12') return date('g:i A');
+        if ($stripped === 'time:24') return date('H:i');
+        if (str_starts_with($stripped, 'time:')) return date(substr($stripped, 5));
+
         if ($stripped === 'record' || $stripped === 'record_id') return (string)$recordId;
         if ($stripped === 'user' || $stripped === 'user_name') return defined('USERID') ? USERID : '';
 
+        // Conditional logic: if(...) or @IF(...) or @CALCTEXT(...)
+        $expr = $clean;
+        if (preg_match('/^@(CALCTEXT|calctext)\s*\((.+)\)$/is', $expr, $m)) $expr = trim($m[2]);
+        if (str_starts_with($expr, '@')) $expr = substr($expr, 1);
+        if (preg_match('/^if\s*\(.+/i', $expr)) {
+            $eval = REDCap::evaluateLogic($expr, $pid, $recordId, $eventId, 1, "", "", null, true);
+            if ($eval !== null && $eval !== false) return (string)$eval;
+        }
+
+        // Support [field:format] and [field]:format syntax within expressions
         if (str_contains($clean, '[')) {
+            $clean = preg_replace_callback('/\[([a-zA-Z0-9_\-]+)(?::([^\]]+))?\](?::([a-zA-Z0-9_\/:\s\-]+))?/', function($m) use ($recordId, $eventId, $pid, $recordData) {
+                $fName = $m[1];
+                $format = !empty($m[2]) ? $m[2] : (!empty($m[3]) ? $m[3] : '');
+                $pipedVal = REDCap::piping_replace_tags('[' . $fName . ']', $recordId, $eventId, 1, [], false, $pid);
+                $rawVal = ($pipedVal !== '' && $pipedVal !== false) ? $pipedVal : ($recordData[$fName] ?? '');
+                if ($format !== '') return $this->formatValue((string)$rawVal, $format);
+                return (string)$rawVal;
+            }, $clean);
+
             $piped = REDCap::piping_replace_tags($clean, $recordId, $eventId, 1, [], false, $pid);
             if ($piped !== '' && $piped !== false) return (string)$piped;
         }

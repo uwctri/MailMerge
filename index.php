@@ -537,24 +537,33 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 
                             <div class="alert alert-light border small text-muted mb-3 py-2 px-3">
                                 <div class="fw-bold text-dark mb-1 d-flex align-items-center gap-1">
-                                    <i class="fas fa-info-circle text-primary"></i> Supported Mapping Values & Syntax
+                                    <i class="fas fa-info-circle text-primary"></i> Supported Expressions & Formats
                                 </div>
                                 <div class="row g-2">
-                                    <div class="col-md-4">
-                                        <div class="fw-semibold text-dark">REDCap Fields & Piping</div>
-                                        <code>[field_name]</code>, <code>[event][field]</code>, or compound piping expressions like <code>[first_name] [last_name]</code>.
+                                    <div class="col-md-3">
+                                        <div class="fw-semibold text-dark">Fields & Piping</div>
+                                        <code>[field_name]</code> or <code>[event][field]</code><br>
+                                        Compound: <code>[first_name] [last_name]</code>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
+                                        <div class="fw-semibold text-dark">Formatted Values (<code>:format</code>)</div>
+                                        Dates: <code>[dob:m/d/y]</code>, <code>[appt:F j, Y]</code><br>
+                                        Case: <code>[name:upper]</code>, <code>[name:title]</code><br>
+                                        Numbers: <code>[amt:currency]</code>, <code>[val:number:2]</code>
+                                    </div>
+                                    <div class="col-md-3">
                                         <div class="fw-semibold text-dark">Dynamic Dates & Times</div>
-                                        <code>today</code> or <code>[today]</code> &rarr; <em><?= date('F j, Y') ?></em><br>
-                                        <code>today:m/d/y</code> &rarr; <em><?= date('m/d/Y') ?></em> | <code>today:y-m-d</code> &rarr; <em><?= date('Y-m-d') ?></em><br>
-                                        <code>now</code> or <code>[now]</code> &rarr; <em><?= date('F j, Y g:i A') ?></em><br>
-                                        <code>time</code> or <code>[time]</code> &rarr; <em><?= date('g:i A') ?></em>
+                                        <code>today</code> &rarr; <em><?= date('F j, Y') ?></em> (or <code>today:m/d/y</code>)<br>
+                                        <code>now</code> &rarr; <em><?= date('F j, Y g:i A') ?></em><br>
+                                        <code>now:format</code> &rarr; e.g. <code>now:24</code>, <code>now:Y-m-d</code><br>
+                                        <code>time</code> (12h) | <code>time:24</code> &rarr; <em><?= date('H:i') ?></em>
                                     </div>
-                                    <div class="col-md-4">
-                                        <div class="fw-semibold text-dark">Special & Static Values</div>
-                                        <code>[record_id]</code>, <code>[user_name]</code><br>
-                                        Any plain text without brackets is rendered as static text (e.g. <code>Dr. Jane Doe</code> or <code>Study Office</code>).
+                                    <div class="col-md-3">
+                                        <div class="fw-semibold text-dark">If Statements & Logic</div>
+                                        <code>if([score] >= 70, 'Pass', 'Fail')</code><br>
+                                        <code>@IF([gender] = '1', 'Male', 'Female')</code><br>
+                                        Special: <code>[record_id]</code>, <code>[user_name]</code><br>
+                                        Plain text is rendered as static text.
                                     </div>
                                 </div>
                             </div>
@@ -564,7 +573,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                     <thead class="table-light small text-muted">
                                         <tr>
                                             <th style="width: 35%;">Word Template Tag</th>
-                                            <th style="width: 55%;">REDCap Field / Piping Expression</th>
+                                            <th style="width: 55%;">REDCap Field / Expression</th>
                                             <th style="width: 10%;" class="text-end"></th>
                                         </tr>
                                     </thead>
@@ -606,7 +615,10 @@ $alpineUrl = $module->getUrl('alpine.min.js');
         <option value="[today:m/d/y]">[today:m/d/y] - US Date (<?= date('m/d/Y') ?>)</option>
         <option value="[today:y-m-d]">[today:y-m-d] - ISO Date (<?= date('Y-m-d') ?>)</option>
         <option value="[now]">[now] - Current Date & Time (<?= date('F j, Y g:i A') ?>)</option>
-        <option value="[time]">[time] - Current Time (<?= date('g:i A') ?>)</option>
+        <option value="[time]">[time] - 12-Hour Time (<?= date('g:i A') ?>)</option>
+        <option value="[time:24]">[time:24] - 24-Hour Time (<?= date('H:i') ?>)</option>
+        <option value="now:24">now:24 - Current 24-Hour Time (<?= date('H:i') ?>)</option>
+        <option value="if([field] = '1', 'Yes', 'No')">if([field] = '1', 'Yes', 'No') - Conditional Variable</option>
         <option value="[record_id]">[record_id] - Record ID</option>
         <option value="[user_name]">[user_name] - Current REDCap User</option>
         <?php foreach ($fields as $f): ?>
