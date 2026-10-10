@@ -37,6 +37,9 @@
     "getSettings",
     "evaluateQueue",
     "generateLetters",
+    "resolveLetters",
+    "generateAndResolveLetters",
+    "getArchive",
     "testMerge"
   ],
   "crons": [
