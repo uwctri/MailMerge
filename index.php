@@ -46,6 +46,21 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 [x-cloak] {
     display: none !important;
 }
+.card {
+    border: 1px solid #c2c9d2 !important;
+    border-radius: 0.5rem !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08) !important;
+    background-color: #ffffff;
+}
+.card-header {
+    background-color: #f4f6f9 !important;
+    border-bottom: 1px solid #c2c9d2 !important;
+}
+.rule-card {
+    border: 1px solid #c2c9d2 !important;
+    background-color: #fcfdfe !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
 .drop-zone {
     border: 2px dashed #0d6efd;
     background-color: #f8faff;
@@ -174,8 +189,8 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 
     <!-- TAB 1: QUEUE -->
     <div x-show="activeTab === 'queue'">
-        <div class="card shadow-sm border-0">
-            <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex align-items-center justify-content-between">
                 <div class="d-flex align-items-center gap-2">
                     <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-tasks me-2"></i>Letters Due</h5>
                     <span class="badge bg-primary" x-text="queue.length + ' Pending'"></span>
@@ -258,8 +273,8 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 
     <!-- TAB 2: TEMPLATE LIBRARY -->
     <div x-show="activeTab === 'templates'">
-        <div class="card shadow-sm border-0 mb-4">
-            <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex align-items-center justify-content-between">
                 <h5 class="mb-0 fw-bold text-primary"><i class="fas fa-file-word me-2"></i>Template Library</h5>
                 <span class="badge bg-light text-dark border" x-text="templates.length + ' Templates'"></span>
             </div>
@@ -353,8 +368,8 @@ $alpineUrl = $module->getUrl('alpine.min.js');
     <!-- TAB 3: CONFIGURATION -->
     <div x-show="activeTab === 'config'">
         <!-- Automation & Delivery Section -->
-        <div class="card shadow-sm border-0 mb-4">
-            <div class="card-header bg-white py-3">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
                 <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-robot me-2 text-primary"></i>Automation & Storage Settings</h5>
             </div>
             <div class="card-body">
@@ -423,8 +438,8 @@ $alpineUrl = $module->getUrl('alpine.min.js');
         </div>
 
         <!-- Rules & Logic Section -->
-        <div class="card shadow-sm border-0 mb-4">
-            <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex align-items-center justify-content-between">
                 <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-cogs me-2"></i>Letter Rules & Logic</h5>
                 <button type="button" class="btn btn-primary btn-sm" @click="addRule()">
                     <i class="fas fa-plus me-1"></i> Add Letter Rule
@@ -432,7 +447,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             </div>
             <div class="card-body">
                 <template x-for="(r, idx) in rules" :key="r.id">
-                    <div class="border rounded-3 p-3 mb-3 bg-light position-relative">
+                    <div class="rule-card rounded-3 p-3 mb-3 position-relative">
                         <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
                             <div class="d-flex align-items-center gap-3">
                                 <span class="badge bg-secondary" x-text="'#' + (idx + 1)"></span>
@@ -519,6 +534,31 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                     <i class="fas fa-plus"></i> Add Tag
                                 </button>
                             </div>
+
+                            <div class="alert alert-light border small text-muted mb-3 py-2 px-3">
+                                <div class="fw-bold text-dark mb-1 d-flex align-items-center gap-1">
+                                    <i class="fas fa-info-circle text-primary"></i> Supported Mapping Values & Syntax
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <div class="fw-semibold text-dark">REDCap Fields & Piping</div>
+                                        <code>[field_name]</code>, <code>[event][field]</code>, or compound piping expressions like <code>[first_name] [last_name]</code>.
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="fw-semibold text-dark">Dynamic Dates & Times</div>
+                                        <code>today</code> or <code>[today]</code> &rarr; <em><?= date('F j, Y') ?></em><br>
+                                        <code>today:m/d/y</code> &rarr; <em><?= date('m/d/Y') ?></em> | <code>today:y-m-d</code> &rarr; <em><?= date('Y-m-d') ?></em><br>
+                                        <code>now</code> or <code>[now]</code> &rarr; <em><?= date('F j, Y g:i A') ?></em><br>
+                                        <code>time</code> or <code>[time]</code> &rarr; <em><?= date('g:i A') ?></em>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="fw-semibold text-dark">Special & Static Values</div>
+                                        <code>[record_id]</code>, <code>[user_name]</code><br>
+                                        Any plain text without brackets is rendered as static text (e.g. <code>Dr. Jane Doe</code> or <code>Study Office</code>).
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="table-responsive">
                                 <table class="table table-sm align-middle mb-0">
                                     <thead class="table-light small text-muted">
@@ -562,8 +602,15 @@ $alpineUrl = $module->getUrl('alpine.min.js');
     </div>
 
     <datalist id="fieldsList">
+        <option value="[today]">[today] - Today's Date (<?= date('F j, Y') ?>)</option>
+        <option value="[today:m/d/y]">[today:m/d/y] - US Date (<?= date('m/d/Y') ?>)</option>
+        <option value="[today:y-m-d]">[today:y-m-d] - ISO Date (<?= date('Y-m-d') ?>)</option>
+        <option value="[now]">[now] - Current Date & Time (<?= date('F j, Y g:i A') ?>)</option>
+        <option value="[time]">[time] - Current Time (<?= date('g:i A') ?>)</option>
+        <option value="[record_id]">[record_id] - Record ID</option>
+        <option value="[user_name]">[user_name] - Current REDCap User</option>
         <?php foreach ($fields as $f): ?>
-            <option value="[<?= htmlspecialchars($f, ENT_QUOTES) ?>]"><?= htmlspecialchars($f, ENT_QUOTES) ?></option>
+            <option value="[<?= htmlspecialchars($f, ENT_QUOTES) ?>]">[<?= htmlspecialchars($f, ENT_QUOTES) ?>]</option>
         <?php endforeach; ?>
     </datalist>
 </div>

@@ -205,6 +205,32 @@ class MailMerge extends AbstractExternalModule {
         return ['success' => true];
     }
 
+    public function resolveMappingSource(string $source, $recordId, $eventId, $pid, array $recordData): string {
+        $clean = trim($source);
+        $lower = strtolower($clean);
+        $stripped = trim($lower, '[]{}');
+
+        if ($stripped === 'today') return date('F j, Y');
+        if ($stripped === 'today:m/d/y' || $stripped === 'today_usa') return date('m/d/Y');
+        if ($stripped === 'today:y-m-d' || $stripped === 'date') return date('Y-m-d');
+        if (str_starts_with($stripped, 'today:')) return date(substr($stripped, 6));
+        if ($stripped === 'now') return date('F j, Y g:i A');
+        if ($stripped === 'now:iso' || $stripped === 'timestamp') return date('Y-m-d H:i:s');
+        if ($stripped === 'time') return date('g:i A');
+        if ($stripped === 'record' || $stripped === 'record_id') return (string)$recordId;
+        if ($stripped === 'user' || $stripped === 'user_name') return defined('USERID') ? USERID : '';
+
+        if (str_contains($clean, '[')) {
+            $piped = REDCap::piping_replace_tags($clean, $recordId, $eventId, 1, [], false, $pid);
+            if ($piped !== '' && $piped !== false) return (string)$piped;
+        }
+
+        if (isset($recordData[$clean]) && !is_array($recordData[$clean]))
+            return (string)$recordData[$clean];
+
+        return $clean;
+    }
+
     public function evaluateQueue($pid): array {
         $rules = $this->getLetterRules($pid);
         if (empty($rules)) return [];
@@ -217,6 +243,14 @@ class MailMerge extends AbstractExternalModule {
             if (empty($rule['enabled'])) continue;
             $cond = trim($rule['condition'] ?? '');
             $eventId = $rule['event_id'] ?: null;
+            $flagField = trim($rule['flag_field'] ?? '');
+
+            $loggedRecords = [];
+            if ($flagField === '') {
+                $logRes = $this->queryLogs("SELECT record WHERE message = 'Generated letter' AND rule_id = ?", [$rule['id']]);
+                while ($r = $logRes->fetch_assoc())
+                    if (!empty($r['record'])) $loggedRecords[$r['record']] = true;
+            }
 
             foreach ($allData as $recordId => $recordEvents) {
                 if ($cond !== '') {
@@ -227,10 +261,11 @@ class MailMerge extends AbstractExternalModule {
                 $primaryEvent = $eventId ?: array_key_first($recordEvents);
                 $row = $recordEvents[$primaryEvent] ?? [];
 
-                $flagField = trim($rule['flag_field'] ?? '');
                 if ($flagField !== '') {
                     $val = trim((string)($row[$flagField] ?? ''));
                     if ($val !== '' && $val !== '0') continue;
+                } else if (isset($loggedRecords[$recordId])) {
+                    continue;
                 }
 
                 $queue[] = [
@@ -307,9 +342,8 @@ class MailMerge extends AbstractExternalModule {
         foreach ($rule['mappings'] ?: [] as $m) {
             $tag = trim($m['tag']);
             $source = trim($m['source']);
-            if (!$tag || !$source) continue;
-            $piped = REDCap::piping_replace_tags($source, $recordId, $eventId, 1, [], false, $pid);
-            $mergePayload[$tag] = $piped ?: ($recordData[$source] ?? '');
+            if (!$tag || $source === '') continue;
+            $mergePayload[$tag] = $this->resolveMappingSource($source, $recordId, $eventId, $pid, $recordData);
         }
 
         $outPath = tempnam(sys_get_temp_dir(), 'ltr_') . '.docx';
@@ -355,6 +389,16 @@ class MailMerge extends AbstractExternalModule {
                 ]
             ]));
         }
+
+        if (!$isTest)
+            $this->log('Generated letter', [
+                'project_id' => $pid,
+                'record' => $recordId,
+                'rule_id' => $rule['id'],
+                'rule_title' => $rule['title'],
+                'filename' => $filename,
+                'doc_id' => $outDocId,
+            ]);
 
         return ['success' => true, 'doc_id' => $outDocId, 'filename' => $filename];
     }
