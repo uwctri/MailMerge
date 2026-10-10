@@ -695,18 +695,18 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                 <template x-for="(r, idx) in rules" :key="r.id">
                     <div class="rule-card rounded-3 p-3 mb-3 position-relative" style="max-width: 100%; overflow: hidden;">
                         <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2 flex-wrap gap-2">
-                            <div class="d-flex align-items-center gap-3 flex-wrap">
-                                <div class="input-group input-group-sm" style="max-width: 380px; min-width: 200px;">
+                            <div class="flex-grow-1" style="min-width: 240px; max-width: 480px;">
+                                <div class="input-group input-group-sm">
                                     <span class="input-group-text bg-secondary text-white fw-bold" x-text="'Rule #' + (idx + 1)"></span>
                                     <input type="text" class="form-control fw-bold" x-model="r.title" placeholder="Letter Title (e.g. Visit 1 Letter)">
                                 </div>
-                                <div class="form-check form-switch mb-0">
-                                    <input class="form-check-input" type="checkbox" :id="'sw_' + r.id" x-model="r.enabled">
-                                    <label class="form-check-label small" :for="'sw_' + r.id" x-text="r.enabled ? 'Enabled' : 'Disabled'"></label>
-                                </div>
                             </div>
-                            <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-outline-danger btn-sm" @click="removeRule(idx)">
+                            <div class="d-flex align-items-center gap-3 ms-auto">
+                                <div class="form-check form-switch mb-0 d-flex align-items-center gap-1">
+                                    <input class="form-check-input mt-0" type="checkbox" :id="'sw_' + r.id" x-model="r.enabled">
+                                    <label class="form-check-label small user-select-none" :for="'sw_' + r.id" x-text="r.enabled ? 'Enabled' : 'Disabled'"></label>
+                                </div>
+                                <button type="button" class="btn btn-outline-danger btn-sm" @click="removeRule(idx)" title="Delete Rule">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
