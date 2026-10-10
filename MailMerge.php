@@ -11,6 +11,7 @@ require_once __DIR__ . '/DocxEngine.php';
 use ExternalModules\AbstractExternalModule;
 use REDCap;
 use Files;
+use Piping;
 
 class MailMerge extends AbstractExternalModule {
     public function checkFileRepoAccess(): array {
@@ -269,13 +270,13 @@ class MailMerge extends AbstractExternalModule {
             $clean = preg_replace_callback('/\[([a-zA-Z0-9_\-]+)(?::([^\]]+))?\](?::([a-zA-Z0-9_\/:\s\-]+))?/', function($m) use ($recordId, $eventId, $pid, $recordData) {
                 $fName = $m[1];
                 $format = !empty($m[2]) ? $m[2] : (!empty($m[3]) ? $m[3] : '');
-                $pipedVal = REDCap::piping_replace_tags('[' . $fName . ']', $recordId, $eventId, 1, [], false, $pid);
+                $pipedVal = Piping::replaceVariablesInLabel('[' . $fName . ']', $recordId, $eventId, 1, [], false, $pid, false);
                 $rawVal = ($pipedVal !== '' && $pipedVal !== false) ? $pipedVal : ($recordData[$fName] ?? '');
                 if ($format !== '') return $this->formatValue((string)$rawVal, $format);
                 return (string)$rawVal;
             }, $clean);
 
-            $piped = REDCap::piping_replace_tags($clean, $recordId, $eventId, 1, [], false, $pid);
+            $piped = Piping::replaceVariablesInLabel($clean, $recordId, $eventId, 1, [], false, $pid, false);
             if ($piped !== '' && $piped !== false) return (string)$piped;
         }
 
@@ -292,6 +293,7 @@ class MailMerge extends AbstractExternalModule {
         $allData = REDCap::getData($pid, 'array');
         if (empty($allData)) return [];
 
+        $eventNames = REDCap::isLongitudinal() ? REDCap::getEventNames(true, false) : [];
         $queue = [];
         foreach ($rules as $rule) {
             if (empty($rule['enabled'])) continue;
@@ -322,12 +324,15 @@ class MailMerge extends AbstractExternalModule {
                     continue;
                 }
 
+                $eventName = !empty($eventNames[$primaryEvent]) ? $eventNames[$primaryEvent] : 'Default';
+
                 $queue[] = [
                     'rule_id' => $rule['id'],
                     'rule_title' => $rule['title'],
                     'template_doc_id' => $rule['template_doc_id'],
                     'record_id' => $recordId,
                     'event_id' => $primaryEvent,
+                    'event_name' => $eventName,
                     'recipient' => trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? '')) ?: $recordId,
                 ];
             }

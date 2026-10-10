@@ -122,7 +122,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 }
 </style>
 
-<div class="ps-2 pe-3 py-3 w-100" x-data="mailMergeApp()" x-cloak>
+<div class="ps-2 pe-3 py-3 w-100" style="max-width: 100%; overflow-x: hidden;" x-data="mailMergeApp()" x-cloak>
     <!-- Top Bar -->
     <div class="d-flex align-items-center justify-content-between pb-3 mb-3 border-bottom">
         <div class="d-flex align-items-center gap-3">
@@ -139,9 +139,6 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             <!-- Queue Tab Actions -->
             <template x-if="activeTab === 'queue'">
                 <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" @click="loadQueue()" :disabled="loadingQueue">
-                        <i class="fas me-1" :class="loadingQueue ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i> Refresh Queue
-                    </button>
                     <button type="button" class="btn btn-primary btn-sm px-3 shadow-sm fw-bold" @click="generateSelected()" :disabled="selected.length === 0 || generating">
                         <i class="fas me-1" :class="generating ? 'fa-spinner fa-spin' : 'fa-file-export'"></i>
                         <span x-text="generating ? 'Generating...' : ('Generate Selected (' + selected.length + ')')"></span>
@@ -189,53 +186,80 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 
     <!-- TAB 1: QUEUE -->
     <div x-show="activeTab === 'queue'">
-        <div class="card shadow">
+        <div class="card shadow" style="overflow: hidden;">
             <div class="card-header py-3 d-flex align-items-center justify-content-between">
                 <div class="d-flex align-items-center gap-2">
                     <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-tasks me-2"></i>Letters Due</h5>
                     <span class="badge bg-primary" x-text="queue.length + ' Pending'"></span>
                 </div>
-                <div class="form-check" x-show="queue.length > 0">
-                    <input class="form-check-input" type="checkbox" id="selectAll" @change="toggleSelectAll($event)">
-                    <label class="form-check-label small fw-semibold" for="selectAll">Select All</label>
-                </div>
             </div>
             <div class="card-body p-0">
-                <!-- Records Table -->
+                <!-- Records Table & Pagination -->
                 <template x-if="!loadingQueue && queue.length > 0">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light small text-muted text-uppercase">
-                                <tr>
-                                    <th style="width: 40px;"></th>
-                                    <th>Record ID</th>
-                                    <th>Recipient</th>
-                                    <th>Letter Title</th>
-                                    <th>Event</th>
-                                    <th class="text-end">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <template x-for="(item, idx) in queue" :key="idx">
+                    <div>
+                        <div class="table-responsive" style="overflow-x: hidden;">
+                            <table class="table table-hover align-middle mb-0 w-100" style="table-layout: auto;">
+                                <thead class="table-light small text-muted text-uppercase">
                                     <tr>
-                                        <td>
-                                            <input type="checkbox" class="form-check-input" :value="idx" x-model="selected">
-                                        </td>
-                                        <td class="fw-bold text-primary" x-text="item.record_id"></td>
-                                        <td x-text="item.recipient"></td>
-                                        <td>
-                                            <span class="badge bg-light text-dark border" x-text="item.rule_title"></span>
-                                        </td>
-                                        <td class="small text-muted" x-text="item.event_id || 'Default'"></td>
-                                        <td class="text-end">
-                                            <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2" @click="generateSingle(item)" :disabled="generating">
-                                                <i class="fas fa-play me-1"></i> Generate
-                                            </button>
-                                        </td>
+                                        <th style="width: 40px;" class="text-center">
+                                            <input class="form-check-input" type="checkbox" id="selectAll" @change="toggleSelectAll($event)" :checked="isAllSelected()">
+                                        </th>
+                                        <th>Record ID</th>
+                                        <th>Recipient</th>
+                                        <th>Letter Title</th>
+                                        <th>Event</th>
+                                        <th class="text-end" style="width: 50px;"></th>
                                     </tr>
-                                </template>
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    <template x-for="item in pagedQueue()" :key="itemKey(item)">
+                                        <tr>
+                                            <td class="text-center">
+                                                <input type="checkbox" class="form-check-input" :value="itemKey(item)" x-model="selected">
+                                            </td>
+                                            <td class="fw-bold text-primary" x-text="item.record_id"></td>
+                                            <td x-text="item.recipient"></td>
+                                            <td>
+                                                <span class="badge bg-light text-dark border" x-text="item.rule_title"></span>
+                                            </td>
+                                            <td class="small text-muted" x-text="item.event_name || 'Default'"></td>
+                                            <td class="text-end">
+                                                <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2" title="Generate Letter" @click="generateSingle(item)" :disabled="generating">
+                                                    <i class="fas fa-print"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination Footer -->
+                        <div class="d-flex align-items-center justify-content-between p-3 border-top bg-light flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-2 text-muted small">
+                                <span>Showing <strong class="text-dark" x-text="pageStart()"></strong> to <strong class="text-dark" x-text="pageEnd()"></strong> of <strong class="text-dark" x-text="queue.length"></strong> records</span>
+                                <span class="mx-2 text-muted">|</span>
+                                <label for="pageSizeInput" class="me-1">Per page:</label>
+                                <input id="pageSizeInput" type="number" min="1" step="1" class="form-control form-control-sm text-center bg-white" style="width: 70px;" x-model.number="pageSize" @input="onPageSizeChange()">
+                            </div>
+                            <div class="d-flex align-items-center gap-1" x-show="totalPages() > 1">
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" :disabled="currentPage <= 1" @click="setPage(1)" title="First Page">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" :disabled="currentPage <= 1" @click="setPage(currentPage - 1)" title="Previous Page">
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <span class="small text-muted mx-2">
+                                    Page <strong class="text-dark" x-text="currentPage"></strong> of <strong class="text-dark" x-text="totalPages()"></strong>
+                                </span>
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" :disabled="currentPage >= totalPages()" @click="setPage(currentPage + 1)" title="Next Page">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" :disabled="currentPage >= totalPages()" @click="setPage(totalPages())" title="Last Page">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </template>
 
@@ -639,6 +663,8 @@ function mailMergeApp() {
         events: <?= json_encode($events) ?>,
         queue: [],
         selected: [],
+        pageSize: 20,
+        currentPage: 1,
         loadingQueue: true,
         generating: false,
         uploadQueue: [],
@@ -649,20 +675,88 @@ function mailMergeApp() {
         showAlert(msg, type = 'info') {
             this.alert.msg = msg;
             this.alert.type = type;
-            setTimeout(() => { if (this.alert.msg === msg) this.alert.msg = ''; }, 5000);
+            setTimeout(() => {
+                if (this.alert.msg === msg) {
+                    this.alert.msg = '';
+                }
+            }, 5000);
         },
 
         init() {
             this.loadQueue();
         },
 
+        itemKey(item) {
+            return String(item.record_id) + '_' + String(item.rule_id) + '_' + String(item.event_id || '');
+        },
+
+        totalPages() {
+            const size = Math.max(1, parseInt(this.pageSize, 10) || 20);
+            return Math.max(1, Math.ceil(this.queue.length / size));
+        },
+
+        pagedQueue() {
+            const size = Math.max(1, parseInt(this.pageSize, 10) || 20);
+            const start = (this.currentPage - 1) * size;
+            return this.queue.slice(start, start + size);
+        },
+
+        setPage(page) {
+            const max = this.totalPages();
+            this.currentPage = Math.max(1, Math.min(page, max));
+        },
+
+        onPageSizeChange() {
+            let size = parseInt(this.pageSize, 10);
+            if (isNaN(size) || size < 1) {
+                size = 1;
+            }
+            this.pageSize = size;
+            const max = this.totalPages();
+            if (this.currentPage > max) {
+                this.currentPage = max;
+            }
+            if (this.currentPage < 1) {
+                this.currentPage = 1;
+            }
+        },
+
+        pageStart() {
+            if (this.queue.length === 0) {
+                return 0;
+            }
+            const size = Math.max(1, parseInt(this.pageSize, 10) || 20);
+            return (this.currentPage - 1) * size + 1;
+        },
+
+        pageEnd() {
+            const size = Math.max(1, parseInt(this.pageSize, 10) || 20);
+            return Math.min(this.currentPage * size, this.queue.length);
+        },
+
+        isAllSelected() {
+            return this.queue.length > 0 && this.selected.length === this.queue.length;
+        },
+
+        toggleSelectAll(e) {
+            if (e.target.checked) {
+                this.selected = this.queue.map(item => this.itemKey(item));
+            } else {
+                this.selected = [];
+            }
+        },
+
         async loadQueue() {
             this.loadingQueue = true;
             this.selected = [];
+            this.currentPage = 1;
             try {
                 const res = await jsmObj.ajax('evaluateQueue', {});
-                if (res.success) this.queue = res.queue || [];
-                else this.showAlert(res.error || 'Failed to evaluate queue', 'danger');
+                if (res.success) {
+                    this.queue = res.queue || [];
+                } else {
+                    this.showAlert(res.error || 'Failed to evaluate queue', 'danger');
+                }
             } catch (e) {
                 this.showAlert('Queue evaluation failed: ' + e.message, 'danger');
             } finally {
@@ -670,14 +764,17 @@ function mailMergeApp() {
             }
         },
 
-        toggleSelectAll(e) {
-            this.selected = e.target.checked ? this.queue.map((_, i) => i) : [];
-        },
-
         async generateSelected() {
-            if (this.selected.length === 0) return;
+            if (this.selected.length === 0) {
+                return;
+            }
             this.generating = true;
-            const items = this.selected.map(idx => this.queue[idx]);
+            const selectedSet = new Set(this.selected);
+            const items = this.queue.filter(item => selectedSet.has(this.itemKey(item)));
+            if (items.length === 0) {
+                this.generating = false;
+                return;
+            }
 
             try {
                 const res = await jsmObj.ajax('generateLetters', { items: items });
