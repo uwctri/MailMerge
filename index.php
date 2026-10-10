@@ -794,36 +794,82 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                 </button>
                             </div>
 
-                            <div class="alert alert-light border small text-muted mb-3 py-2 px-3" style="overflow-wrap: break-word; word-break: break-word;">
-                                <div class="fw-bold text-dark mb-1 d-flex align-items-center gap-1">
-                                    <i class="fas fa-info-circle text-primary"></i> Supported Expressions & Formats
+                            <div class="card border bg-light mb-3" style="max-width: 100%;">
+                                <div class="card-header bg-white py-2 px-3 d-flex align-items-center justify-content-between border-bottom">
+                                    <span class="fw-bold small text-dark d-flex align-items-center gap-1">
+                                        <i class="fas fa-info-circle text-primary"></i> Supported Merge Field Syntax & Formatting Guide
+                                    </span>
+                                    <span class="badge bg-light text-muted border">Quick Reference</span>
                                 </div>
-                                <div class="row g-2">
-                                    <div class="col-12 col-md-6">
-                                        <div class="fw-semibold text-dark">Fields & Piping</div>
-                                        <code>[field_name]</code> or <code>[event][field]</code><br>
-                                        Compound: <code>[first_name] [last_name]</code><br>
-                                        <span class="text-success small"><i class="fas fa-check-circle me-1"></i>Auto cross-event fallback</span>
-                                    </div>
-                                    <div class="col-12 col-md-6">
-                                        <div class="fw-semibold text-dark">Formatted Values (<code>:format</code>)</div>
-                                        Dates: <code>[dob:m/d/y]</code>, <code>[appt:F j, Y]</code><br>
-                                        Case: <code>[name:upper]</code>, <code>[name:title]</code><br>
-                                        Numbers: <code>[amt:currency]</code>, <code>[val:number:2]</code>
-                                    </div>
-                                    <div class="col-12 col-md-6">
-                                        <div class="fw-semibold text-dark">Dynamic Dates & Times</div>
-                                        <code>today</code> &rarr; <em><?= date('F j, Y') ?></em> (or <code>today:m/d/y</code>)<br>
-                                        <code>now</code> &rarr; <em><?= date('F j, Y g:i A') ?></em><br>
-                                        <code>now:format</code> &rarr; e.g. <code>now:24</code>, <code>now:Y-m-d</code><br>
-                                        <code>time</code> (12h) | <code>time:24</code> &rarr; <em><?= date('H:i') ?></em>
-                                    </div>
-                                    <div class="col-12 col-md-6">
-                                        <div class="fw-semibold text-dark">If Statements & Logic</div>
-                                        <code>if([score] >= 70, 'Pass', 'Fail')</code><br>
-                                        <code>@IF([gender] = '1', 'Male', 'Female')</code><br>
-                                        Special: <code>[record_id]</code>, <code>[user_name]</code><br>
-                                        Plain text is rendered as static text.
+                                <div class="card-body p-2 p-md-3">
+                                    <div class="row g-2 g-md-3">
+                                        <!-- Card 1 -->
+                                        <div class="col-12 col-md-6 col-xl-3">
+                                            <div class="bg-white border rounded-2 p-2 p-md-3 h-100 shadow-sm d-flex flex-column">
+                                                <div class="fw-bold text-dark small mb-2 d-flex align-items-center gap-1 border-bottom pb-1">
+                                                    <i class="fas fa-database text-primary"></i> Fields & Piping
+                                                </div>
+                                                <ul class="list-unstyled small text-muted mb-0 d-flex flex-column gap-1">
+                                                    <li><span class="text-secondary fw-semibold">Standard:</span> <code>[first_name]</code></li>
+                                                    <li><span class="text-secondary fw-semibold">Event:</span> <code>[baseline][address]</code></li>
+                                                    <li><span class="text-secondary fw-semibold">Combined:</span> <code>[first_name] [last_name]</code></li>
+                                                    <li><span class="text-secondary fw-semibold">Special:</span> <code>[record_id]</code></li>
+                                                    <li class="mt-auto pt-2 text-success" style="font-size: 0.72rem;">
+                                                        <i class="fas fa-check-circle me-1"></i>Cross-event fallback enabled
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <!-- Card 2 -->
+                                        <div class="col-12 col-md-6 col-xl-3">
+                                            <div class="bg-white border rounded-2 p-2 p-md-3 h-100 shadow-sm d-flex flex-column">
+                                                <div class="fw-bold text-dark small mb-2 d-flex align-items-center gap-1 border-bottom pb-1">
+                                                    <i class="fas fa-paint-brush text-primary"></i> Formats (<code>:format</code>)
+                                                </div>
+                                                <ul class="list-unstyled small text-muted mb-0 d-flex flex-column gap-1">
+                                                    <li><span class="text-secondary fw-semibold">Date:</span> <code>[dob:m/d/y]</code>, <code>[appt:F j, Y]</code></li>
+                                                    <li><span class="text-secondary fw-semibold">Text Case:</span> <code>[city:upper]</code>, <code>[name:title]</code></li>
+                                                    <li><span class="text-secondary fw-semibold">Currency:</span> <code>[fee:currency]</code> <span class="text-dark">($50.00)</span></li>
+                                                    <li><span class="text-secondary fw-semibold">Decimals:</span> <code>[val:number:2]</code> <span class="text-dark">(12.50)</span></li>
+                                                    <li><span class="text-secondary fw-semibold">Integer:</span> <code>[val:number:0]</code> <span class="text-dark">(13)</span></li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <!-- Card 3 -->
+                                        <div class="col-12 col-md-6 col-xl-3">
+                                            <div class="bg-white border rounded-2 p-2 p-md-3 h-100 shadow-sm d-flex flex-column">
+                                                <div class="fw-bold text-dark small mb-2 d-flex align-items-center gap-1 border-bottom pb-1">
+                                                    <i class="fas fa-clock text-primary"></i> Dates & Times
+                                                </div>
+                                                <ul class="list-unstyled small text-muted mb-0 d-flex flex-column gap-1">
+                                                    <li><span class="text-secondary fw-semibold">Today:</span> <code>today</code> &rarr; <span class="text-dark"><?= date('F j, Y') ?></span></li>
+                                                    <li><span class="text-secondary fw-semibold">Date Format:</span> <code>today:m/d/y</code> &rarr; <span class="text-dark"><?= date('m/d/Y') ?></span></li>
+                                                    <li><span class="text-secondary fw-semibold">Now:</span> <code>now</code> &rarr; <span class="text-dark"><?= date('M j, Y g:i A') ?></span></li>
+                                                    <li><span class="text-secondary fw-semibold">Time:</span> <code>time</code> (12h) | <code>time:24</code> (24h)</li>
+                                                    <li><span class="text-secondary fw-semibold">User:</span> <code>[user_name]</code></li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <!-- Card 4 -->
+                                        <div class="col-12 col-md-6 col-xl-3">
+                                            <div class="bg-white border rounded-2 p-2 p-md-3 h-100 shadow-sm d-flex flex-column">
+                                                <div class="fw-bold text-dark small mb-2 d-flex align-items-center gap-1 border-bottom pb-1">
+                                                    <i class="fas fa-code-branch text-primary"></i> Logic & Conditions
+                                                </div>
+                                                <ul class="list-unstyled small text-muted mb-0 d-flex flex-column gap-1">
+                                                    <li><span class="text-secondary fw-semibold">Equality:</span> <code>if([status] = '1', 'Yes', 'No')</code></li>
+                                                    <li><span class="text-secondary fw-semibold">Compare:</span> <code>if([age] >= 18, 'Adult', 'Minor')</code></li>
+                                                    <li><span class="text-secondary fw-semibold">Action Tag:</span> <code>@IF([v] != '', [v], 'N/A')</code></li>
+                                                    <li><span class="text-secondary fw-semibold">Blank Check:</span> <code>if([ph] != '', [ph], 'None')</code></li>
+                                                    <li class="mt-auto pt-1 text-muted fst-italic" style="font-size: 0.72rem;">
+                                                        Plain text renders as static text
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
