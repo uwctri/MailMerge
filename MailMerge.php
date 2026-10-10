@@ -405,27 +405,25 @@ class MailMerge extends AbstractExternalModule
             $printedField = trim($rule['printed_flag_field'] ?? '');
             $completionField = $printedField !== '' ? $printedField : $flagField;
 
-            $resolvedRecords = [];
-            if ($completionField === '') {
-                $logRes = $this->queryLogs("SELECT record, message WHERE (message = 'Marked letter resolved' OR message = 'Returned letter to queue') AND rule_id = ? ORDER BY timestamp ASC", [$rule['id']]);
-                while ($r = $logRes->fetch_assoc()) {
-                    if (empty($r['record'])) continue;
-                    if ($r['message'] === 'Marked letter resolved') {
-                        $resolvedRecords[$r['record']] = true;
-                    } else if ($r['message'] === 'Returned letter to queue') {
-                        unset($resolvedRecords[$r['record']]);
-                    }
+            // Track latest log action for this rule per record
+            $ruleLogRes = $this->queryLogs(
+                "SELECT log_id, record, message WHERE (message = 'Marked letter resolved' OR message = 'Returned letter to queue' OR message = 'Generated letter') AND rule_id = ? ORDER BY log_id ASC",
+                [(string)$rule['id']]
+            );
+            $latestLogAction = [];
+            $generatedInLog = [];
+            while ($r = $ruleLogRes->fetch_assoc()) {
+                if (empty($r['record'])) continue;
+                $rec = (string)$r['record'];
+                $msg = $r['message'];
+                $latestLogAction[$rec] = $msg;
+                if ($msg === 'Generated letter') {
+                    $generatedInLog[$rec] = true;
                 }
             }
 
-            $generatedRecords = [];
-            if ($flagField === '') {
-                $genRes = $this->queryLogs("SELECT record WHERE message = 'Generated letter' AND rule_id = ?", [$rule['id']]);
-                while ($r = $genRes->fetch_assoc())
-                    if (!empty($r['record'])) $generatedRecords[$r['record']] = true;
-            }
-
             foreach ($allData as $recordId => $recordEvents) {
+                $recStr = (string)$recordId;
                 if ($cond !== '') {
                     $isDue = $this->evaluateCondition($cond, $pid, $recordId, $eventId, $recordEvents);
                     if (!$isDue) continue;
@@ -434,18 +432,53 @@ class MailMerge extends AbstractExternalModule
                 $primaryEvent = $eventId ?: array_key_first($recordEvents);
                 $row = $recordEvents[$primaryEvent] ?? [];
 
-                if ($completionField !== '') {
+                // Determine resolution status:
+                // If user explicitly returned letter to queue, do not consider resolved
+                $lastAction = $latestLogAction[$recStr] ?? null;
+                $isResolved = false;
+
+                if ($lastAction === 'Returned letter to queue') {
+                    $isResolved = false;
+                } else if ($lastAction === 'Marked letter resolved') {
+                    $isResolved = true;
+                } else if ($completionField !== '') {
+                    // Check if completion field is populated on primary or any event
                     $val = trim((string)($row[$completionField] ?? ''));
-                    if ($val !== '' && $val !== '0') continue;
-                } else if (isset($resolvedRecords[$recordId])) {
-                    continue;
+                    if ($val === '' || $val === '0') {
+                        foreach ($recordEvents as $eRow) {
+                            $candidateVal = trim((string)($eRow[$completionField] ?? ''));
+                            if ($candidateVal !== '' && $candidateVal !== '0') {
+                                $val = $candidateVal;
+                                break;
+                            }
+                        }
+                    }
+                    if ($val !== '' && $val !== '0') {
+                        $isResolved = true;
+                    }
                 }
 
+                if ($isResolved) continue;
+
+                // Determine whether it has been generated
                 $isGenerated = false;
-                if ($flagField !== '') {
+                if ($lastAction === 'Returned letter to queue') {
+                    $isGenerated = false;
+                } else if ($flagField !== '') {
                     $gVal = trim((string)($row[$flagField] ?? ''));
-                    if ($gVal !== '' && $gVal !== '0') $isGenerated = true;
-                } else if (isset($generatedRecords[$recordId])) {
+                    if ($gVal === '' || $gVal === '0') {
+                        foreach ($recordEvents as $eRow) {
+                            $candidateVal = trim((string)($eRow[$flagField] ?? ''));
+                            if ($candidateVal !== '' && $candidateVal !== '0') {
+                                $gVal = $candidateVal;
+                                break;
+                            }
+                        }
+                    }
+                    if ($gVal !== '' && $gVal !== '0') {
+                        $isGenerated = true;
+                    }
+                } else if (isset($generatedInLog[$recStr])) {
                     $isGenerated = true;
                 }
 
@@ -616,20 +649,23 @@ class MailMerge extends AbstractExternalModule
             else if (str_starts_with($valType, 'datetime')) $flagValue = date('Y-m-d H:i');
             else if (str_starts_with($valType, 'date')) $flagValue = date('Y-m-d');
 
-            REDCap::saveData($pid, 'json', json_encode([
-                [
-                    'record_id' => $recordId,
-                    'redcap_event_name' => REDCap::getEventNames(true, false, $eventId),
-                    $flagField => $flagValue,
-                ]
-            ]));
+            $isLongitudinal = REDCap::isLongitudinal();
+            $targetEvId = $eventId ?: $primaryEvent;
+            $evName = ($isLongitudinal && $targetEvId) ? REDCap::getEventNames(true, false, $targetEvId) : null;
+            $saveRow = [
+                'record_id' => $recordId,
+                $flagField => $flagValue,
+            ];
+            if ($evName) $saveRow['redcap_event_name'] = $evName;
+
+            REDCap::saveData($pid, 'json', json_encode([$saveRow]));
         }
 
         if (!$isTest)
             $this->log('Generated letter', [
                 'project_id' => $pid,
-                'record' => $recordId,
-                'rule_id' => $rule['id'],
+                'record' => (string)$recordId,
+                'rule_id' => (string)$rule['id'],
                 'rule_title' => $rule['title'],
                 'filename' => $filename,
                 'doc_id' => $outDocId,
@@ -645,15 +681,16 @@ class MailMerge extends AbstractExternalModule
 
         $rules = [];
         foreach ($this->getLetterRules($pid) as $r)
-            $rules[$r['id']] = $r;
+            $rules[(string)$r['id']] = $r;
 
         $resolved = 0;
         $username = defined('USERID') ? USERID : 'System';
+        $isLongitudinal = REDCap::isLongitudinal();
 
         foreach ($items as $item) {
             $recordId = $item['record_id'] ?? null;
             $ruleId = $item['rule_id'] ?? null;
-            $rule = $rules[$ruleId] ?? null;
+            $rule = $rules[(string)$ruleId] ?? null;
             if (!$recordId || !$rule) continue;
 
             $eventId = $rule['event_id'] ?: null;
@@ -668,7 +705,12 @@ class MailMerge extends AbstractExternalModule
                 else if (str_starts_with($valType, 'datetime')) $flagValue = date('Y-m-d H:i');
                 else if (str_starts_with($valType, 'date')) $flagValue = date('Y-m-d');
 
-                $eventName = $eventId ? REDCap::getEventNames(true, false, $eventId) : null;
+                $targetEvId = $eventId;
+                if ($isLongitudinal && !$targetEvId) {
+                    $recData = REDCap::getData($pid, 'array', $recordId)[$recordId] ?? [];
+                    $targetEvId = array_key_first($recData);
+                }
+                $eventName = ($isLongitudinal && $targetEvId) ? REDCap::getEventNames(true, false, $targetEvId) : null;
                 $saveData = [
                     'record_id' => $recordId,
                     $targetField => $flagValue,
@@ -679,8 +721,8 @@ class MailMerge extends AbstractExternalModule
 
             $this->log('Marked letter resolved', [
                 'project_id' => $pid,
-                'record' => $recordId,
-                'rule_id' => $rule['id'],
+                'record' => (string)$recordId,
+                'rule_id' => (string)$rule['id'],
                 'rule_title' => $rule['title'],
                 'username' => $username,
             ]);
@@ -697,32 +739,71 @@ class MailMerge extends AbstractExternalModule
 
         $rules = [];
         foreach ($this->getLetterRules($pid) as $r)
-            $rules[$r['id']] = $r;
+            $rules[(string)$r['id']] = $r;
 
-        $rule = $rules[$ruleId] ?? null;
+        $rule = $rules[(string)$ruleId] ?? null;
         if (!$rule) return ['success' => false, 'error' => 'Rule not found'];
 
         $eventId = $rule['event_id'] ?: null;
         $fieldsToReset = [];
         if (!empty($rule['printed_flag_field'])) $fieldsToReset[] = trim($rule['printed_flag_field']);
         if (!empty($rule['flag_field'])) $fieldsToReset[] = trim($rule['flag_field']);
-        $fieldsToReset = array_unique($fieldsToReset);
+        $fieldsToReset = array_unique(array_filter($fieldsToReset));
+
+        $isLongitudinal = REDCap::isLongitudinal();
 
         if (!empty($fieldsToReset)) {
-            $eventName = $eventId ? REDCap::getEventNames(true, false, $eventId) : null;
-            $saveData = ['record_id' => $recordId];
-            if ($eventName) $saveData['redcap_event_name'] = $eventName;
-            foreach ($fieldsToReset as $f) {
-                $saveData[$f] = '';
+            $recData = REDCap::getData($pid, 'array', $recordId)[$recordId] ?? [];
+            $saveBatch = [];
+
+            if ($isLongitudinal) {
+                $eventsModified = [];
+                foreach ($recData as $evId => $evFields) {
+                    $evUniqueName = REDCap::getEventNames(true, false, $evId);
+                    if (!$evUniqueName) continue;
+                    $row = ['record_id' => $recordId, 'redcap_event_name' => $evUniqueName];
+                    $hasField = false;
+                    foreach ($fieldsToReset as $f) {
+                        if (isset($evFields[$f]) && (string)$evFields[$f] !== '') {
+                            $row[$f] = '';
+                            $hasField = true;
+                        }
+                    }
+                    if ($hasField) {
+                        $saveBatch[] = $row;
+                        $eventsModified[$evId] = true;
+                    }
+                }
+
+                $targetEvId = $eventId ?: array_key_first($recData);
+                if ($targetEvId && !isset($eventsModified[$targetEvId])) {
+                    $evUniqueName = REDCap::getEventNames(true, false, $targetEvId);
+                    if ($evUniqueName) {
+                        $row = ['record_id' => $recordId, 'redcap_event_name' => $evUniqueName];
+                        foreach ($fieldsToReset as $f) {
+                            $row[$f] = '';
+                        }
+                        $saveBatch[] = $row;
+                    }
+                }
+            } else {
+                $row = ['record_id' => $recordId];
+                foreach ($fieldsToReset as $f) {
+                    $row[$f] = '';
+                }
+                $saveBatch[] = $row;
             }
-            REDCap::saveData($pid, 'json', json_encode([$saveData]));
+
+            if (!empty($saveBatch)) {
+                REDCap::saveData($pid, 'json', json_encode($saveBatch));
+            }
         }
 
         $username = defined('USERID') ? USERID : 'System';
         $this->log('Returned letter to queue', [
             'project_id' => $pid,
-            'record' => $recordId,
-            'rule_id' => $rule['id'],
+            'record' => (string)$recordId,
+            'rule_id' => (string)$rule['id'],
             'rule_title' => $rule['title'],
             'username' => $username,
         ]);

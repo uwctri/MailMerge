@@ -75,15 +75,18 @@ class DocxEngine
         // <w:r>...<w:fldChar w:fldCharType="separate"/>...</w:r>
         // ...<w:t>«Tag»</w:t>...
         // <w:r>...<w:fldChar w:fldCharType="end"/>...</w:r>
-        $complexPattern = '/<w:r\b[^>]*>.*?<w:fldChar\s+w:fldCharType="begin"\/>.*?<\/w:r>\s*<w:r\b[^>]*>.*?<w:instrText[^>]*>\s*MERGEFIELD\s+["\']?([^"\'\s\\\\]+)["\']?.*?<\/w:instrText>.*?<\/w:r>\s*<w:r\b[^>]*>.*?<w:fldChar\s+w:fldCharType="separate"\/>.*?<\/w:r>(.*?)<w:r\b[^>]*>.*?<w:fldChar\s+w:fldCharType="end"\/>.*?<\/w:r>/is';
+        $complexPattern = '/<w:r\b[^>]*>(?:(?!<w:r\b).)*?<w:fldChar\s+w:fldCharType="begin"\/>.*?<\/w:r>\s*<w:r\b[^>]*>(?:(?!<w:r\b).)*?<w:instrText[^>]*>\s*MERGEFIELD\s+["\']?([^"\'\s\\\\]+)["\']?.*?<\/w:instrText>.*?<\/w:r>\s*<w:r\b[^>]*>(?:(?!<w:r\b).)*?<w:fldChar\s+w:fldCharType="separate"\/>.*?<\/w:r>(.*?)<w:r\b[^>]*>(?:(?!<w:r\b).)*?<w:fldChar\s+w:fldCharType="end"\/>.*?<\/w:r>/is';
         $xmlMerged = preg_replace_callback(
             $complexPattern,
             function ($m) use ($data) {
                 $tag = trim($m[1]);
                 $disp = $m[2];
-                $val = htmlspecialchars($data[$tag] ?? '', ENT_XML1, 'UTF-8');
+                $val = htmlspecialchars((string)($data[$tag] ?? ''), ENT_XML1, 'UTF-8');
+                $val = str_replace(["\r\n", "\r", "\n"], '</w:t><w:br/><w:t xml:space="preserve">', $val);
                 $rPr = '';
-                if (preg_match('/<w:rPr>.*?<\/w:rPr>/is', $disp, $pMatch)) {
+                if (preg_match('/<w:rPr\b[^>]*>.*?<\/w:rPr>/is', $disp, $pMatch)) {
+                    $rPr = $pMatch[0];
+                } else if (preg_match('/<w:rPr\b[^>]*>.*?<\/w:rPr>/is', $m[0], $pMatch)) {
                     $rPr = $pMatch[0];
                 }
                 return "<w:r>{$rPr}<w:t xml:space=\"preserve\">{$val}</w:t></w:r>";
@@ -101,11 +104,14 @@ class DocxEngine
             function ($m) use ($data) {
                 $tag = trim($m[1]);
                 $inner = $m[2];
-                $val = htmlspecialchars($data[$tag] ?? '', ENT_XML1, 'UTF-8');
+                $val = htmlspecialchars((string)($data[$tag] ?? ''), ENT_XML1, 'UTF-8');
+                $val = str_replace(["\r\n", "\r", "\n"], '</w:t><w:br/><w:t xml:space="preserve">', $val);
 
                 // Extract run properties (<w:rPr>...</w:rPr>) from the inner content if present
                 $rPr = '';
-                if (preg_match('/<w:rPr>.*?<\/w:rPr>/is', $inner, $pMatch)) {
+                if (preg_match('/<w:rPr\b[^>]*>.*?<\/w:rPr>/is', $inner, $pMatch)) {
+                    $rPr = $pMatch[0];
+                } else if (preg_match('/<w:rPr\b[^>]*>.*?<\/w:rPr>/is', $m[0], $pMatch)) {
                     $rPr = $pMatch[0];
                 }
                 return "<w:r>{$rPr}<w:t xml:space=\"preserve\">{$val}</w:t></w:r>";
@@ -123,6 +129,7 @@ class DocxEngine
 
             foreach ($data as $key => $val) {
                 $cleanVal = htmlspecialchars((string)$val, ENT_XML1, 'UTF-8');
+                $cleanVal = str_replace(["\r\n", "\r", "\n"], '</w:t><w:br/><w:t xml:space="preserve">', $cleanVal);
                 $patterns = [
                     '/(?:«|&laquo;)' . preg_quote($key, '/') . '(?:»|&raquo;)/u',
                     '/\{\{' . preg_quote($key, '/') . '\}\}/u',
