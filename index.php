@@ -55,8 +55,8 @@ $indexJsUrl = $module->getUrl('index.js');
         'events' => $events,
     ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 </script>
-<script src="<?= htmlspecialchars($alpineUrl, ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars($indexJsUrl, ENT_QUOTES) ?>" defer></script>
+<script src="<?= htmlspecialchars($alpineUrl, ENT_QUOTES) ?>" defer></script>
 
 <style>
     [x-cloak] {
