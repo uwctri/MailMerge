@@ -317,14 +317,14 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                             <td class="fw-bold text-primary" x-text="item.record_id"></td>
                                             <td x-text="item.recipient"></td>
                                             <td>
-                                                <span class="badge bg-light text-dark border" x-text="item.rule_title"></span>
+                                                <span class="badge bg-light text-dark border px-2 py-1" style="padding: 0.35rem 0.55rem; font-size: 0.8rem;" x-text="item.rule_title"></span>
                                             </td>
                                             <td class="small text-muted" x-text="item.event_name || 'Default'"></td>
                                             <td>
-                                                <span class="badge bg-info text-dark" x-show="item.is_generated">
+                                                <span class="badge bg-info text-dark px-2 py-1" style="padding: 0.35rem 0.55rem; font-size: 0.8rem;" x-show="item.is_generated">
                                                     <i class="fas fa-file-alt me-1"></i>Generated
                                                 </span>
-                                                <span class="badge bg-light text-muted border" x-show="!item.is_generated">
+                                                <span class="badge bg-light text-muted border px-2 py-1" style="padding: 0.35rem 0.55rem; font-size: 0.8rem;" x-show="!item.is_generated">
                                                     <i class="fas fa-clock me-1"></i>Due
                                                 </span>
                                             </td>

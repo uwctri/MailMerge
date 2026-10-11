@@ -212,7 +212,16 @@ class MailMerge extends AbstractExternalModule
 
     public function getLetterRules($pid): array
     {
-        return $this->getProjectSetting('letter_rules', $pid) ?: [];
+        $rules = $this->getProjectSetting('letter_rules', $pid) ?: [];
+        foreach ($rules as &$r) {
+            if (!isset($r['enabled'])) {
+                $r['enabled'] = true;
+            } else {
+                $r['enabled'] = !($r['enabled'] === false || $r['enabled'] === 0 || $r['enabled'] === '0' || $r['enabled'] === 'false' || $r['enabled'] === '');
+            }
+        }
+        unset($r);
+        return $rules;
     }
 
     public function saveLetterRules($pid, $rules): array
@@ -298,21 +307,34 @@ class MailMerge extends AbstractExternalModule
         }
 
         $candidates = array_unique($candidates);
+        $targetEvent = $eventId ?: (!empty($allRecordEvents) ? array_key_first($allRecordEvents) : null);
 
         foreach ($candidates as $expr) {
-            // 1. Try global record context (passing null event allows cross-event references [event][field] to evaluate cleanly)
+            // 1. Try specific or primary event context first
+            if ($targetEvent) {
+                try {
+                    $res = REDCap::evaluateLogic($expr, $pid, $recordId, $targetEvent);
+                    if ($res === true || $res === 1 || $res === '1') return true;
+                } catch (Throwable $e) {
+                }
+            }
+
+            // 2. Try global record context (passing null event allows cross-event references [event][field] to evaluate cleanly)
             try {
                 $res = REDCap::evaluateLogic($expr, $pid, $recordId, null);
                 if ($res === true || $res === 1 || $res === '1') return true;
             } catch (Throwable $e) {
             }
 
-            // 2. Try specific event context if eventId was provided
-            if ($eventId) {
-                try {
-                    $res = REDCap::evaluateLogic($expr, $pid, $recordId, $eventId);
-                    if ($res === true || $res === 1 || $res === '1') return true;
-                } catch (Throwable $e) {
+            // 3. Fallback: try remaining events in longitudinal projects
+            if (!empty($allRecordEvents)) {
+                foreach (array_keys($allRecordEvents) as $otherEvId) {
+                    if ($otherEvId == $targetEvent) continue;
+                    try {
+                        $res = REDCap::evaluateLogic($expr, $pid, $recordId, $otherEvId);
+                        if ($res === true || $res === 1 || $res === '1') return true;
+                    } catch (Throwable $e) {
+                    }
                 }
             }
         }
@@ -428,10 +450,10 @@ class MailMerge extends AbstractExternalModule
             $p = (isset($Proj) && $Proj->project_id == $pid) ? $Proj : new \Project($pid);
             $numArms = $p->numArms ?? count($p->events ?? [1]);
         }
-
         $queue = [];
         foreach ($rules as $rule) {
-            if (empty($rule['enabled'])) continue;
+            $isEnabled = !isset($rule['enabled']) || ($rule['enabled'] === true || $rule['enabled'] === 'true' || $rule['enabled'] === 1 || $rule['enabled'] === '1');
+            if (!$isEnabled) continue;
             $cond = trim($rule['condition'] ?? '');
             $eventId = $rule['event_id'] ?: null;
             $flagField = trim($rule['flag_field'] ?? '');
