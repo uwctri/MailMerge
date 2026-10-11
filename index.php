@@ -1683,6 +1683,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                     const resSettings = await jsmObj.ajax('saveSettings', {
                         settings: this.settings
                     });
+                    this.saving = false;
 
                     if (resRules.success && resSettings.success) {
                         if (typeof Swal !== 'undefined') {

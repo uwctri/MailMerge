@@ -1,15 +1,7 @@
 # MailMerge - REDCap External Module
 
-An automated Word document (`.docx`) mail merge, template management, and letter generation engine for REDCap.
+An automated Word document (`.docx`) mail merge, template management, and letter generation engine for REDCap. Upload Word templates, set up rules to decide which participants receive letters, and fill template tags with REDCap data. Review and search the queue, generate letters individually or in batches, and track generated files in the archive. MailMerge can save letters to the REDCap File Repository or a configured server path, and its twice-daily cron refreshes the queue and handles automated generation.
 
-## Features
+## Installing
 
-- **Unified 3-Tab Interface (`index.php`):**
-  - **Queue:** Caches qualifying record IDs per project, evaluates only those records between full refreshes, and enables single or batch generation. A full evaluation runs twice daily and can also be started from the Queue actions menu.
-  - **Template Library:** Dedicated, spacious multi-file drag-and-drop uploader (`.docx`), automatic merge tag inspection, and template catalog.
-  - **Configuration:** 
-    - **Automation & Storage Settings:** Select between holding letters in queue for manual review, automated File Repository archiving, or server filesystem output (gated by a system-level setting).
-    - **Custom File Repository Locations:** Customize the target folder names for both uploaded templates and generated letters.
-    - **Letter Rules & Logic:** Set target events, trigger conditions, flag field tracking (date/time vs. binary `1`), configurable file naming schemes (`{record}_{letter_name}`), and merge tag mappings.
-- **Custom Tooltips:** Non-flickering hover boxes for inline contextual guidance.
-- **Automated Twice-Daily Cron:** Refreshes the queue cache and automatically processes pending letters according to the selected delivery mode.
+You can install the module by dropping it directly in your modules folder (i.e. `/modules/mailmerge_v1.0.0`) or install it from the Vanderbilt Repo.

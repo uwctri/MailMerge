@@ -12,6 +12,48 @@ use Throwable;
 
 class MailMerge extends AbstractExternalModule
 {
+    public function redcap_module_link_check_display($project_id, $link): ?array
+    {
+        $access = $this->checkFileRepoAccess();
+        if (!$access['allowed']) return null;
+        return $link;
+    }
+
+    public function redcap_module_ajax($action, $payload, $project_id, $record)
+    {
+        $access = $this->checkFileRepoAccess();
+        if (!$access['allowed']) return ['success' => false, 'error' => $access['message']];
+
+        if ($action === 'uploadTemplates') return $this->handleTemplateUploads($project_id, $payload['files']);
+        if ($action === 'deleteTemplate') return $this->deleteTemplate($project_id, $payload['doc_id']);
+        if ($action === 'saveLetterRules') return $this->saveLetterRules($project_id, $payload['rules']);
+        if ($action === 'saveSettings') return $this->saveProjectConfig($project_id, $payload['settings']);
+        if ($action === 'evaluateQueue') {
+            $recordIds = $this->getProjectSetting('queue_record_cache', $project_id);
+            if (!is_array($recordIds)) $recordIds = [];
+            return [
+                'success' => true,
+                'queue' => $this->evaluateQueue($project_id, $recordIds),
+                'evaluated_at' => $this->getProjectSetting('queue_last_full_evaluation', $project_id) ?: null,
+            ];
+        }
+        if ($action === 'refreshQueue') {
+            $queue = $this->refreshQueue($project_id);
+            return [
+                'success' => true,
+                'queue' => $queue,
+                'evaluated_at' => $this->getProjectSetting('queue_last_full_evaluation', $project_id),
+            ];
+        }
+        if ($action === 'generateLetters') return $this->generateLetters($project_id, $payload['items']);
+        if ($action === 'resolveLetters') return $this->resolveLetters($project_id, $payload['items']);
+        if ($action === 'generateAndResolveLetters') return $this->generateAndResolveLetters($project_id, $payload['items']);
+        if ($action === 'unresolveLetter') return $this->unresolveLetter($project_id, $payload['record_id'], $payload['rule_id']);
+        if ($action === 'getArchive') return ['success' => true, 'archive' => $this->getArchive($project_id)];
+
+        return ['success' => false, 'error' => 'Unknown action'];
+    }
+
     public function checkFileRepoAccess(): array
     {
         if (($GLOBALS['file_repository_enabled'] ?? '1') != '1')
@@ -83,52 +125,6 @@ class MailMerge extends AbstractExternalModule
         $row = $res->fetch_assoc();
         if ($row)
             $this->query("INSERT IGNORE INTO redcap_docs_folders_files (docs_id, folder_id) VALUES (?, ?)", [(int)$row['docs_id'], $folderId]);
-    }
-
-    public function redcap_module_link_check_display($project_id, $link): ?array
-    {
-        $access = $this->checkFileRepoAccess();
-        if (!$access['allowed']) return null;
-        return $link;
-    }
-
-    public function redcap_module_ajax($action, $payload, $project_id, $record)
-    {
-        $access = $this->checkFileRepoAccess();
-        if (!$access['allowed']) return ['success' => false, 'error' => $access['message']];
-
-        if ($action === 'uploadTemplates') return $this->handleTemplateUploads($project_id, $payload['files']);
-        if ($action === 'getTemplates') return ['success' => true, 'templates' => $this->getTemplates($project_id)];
-        if ($action === 'deleteTemplate') return $this->deleteTemplate($project_id, $payload['doc_id']);
-        if ($action === 'getLetterRules') return ['success' => true, 'rules' => $this->getLetterRules($project_id)];
-        if ($action === 'saveLetterRules') return $this->saveLetterRules($project_id, $payload['rules']);
-        if ($action === 'getSettings') return ['success' => true, 'settings' => $this->getProjectConfig($project_id)];
-        if ($action === 'saveSettings') return $this->saveProjectConfig($project_id, $payload['settings']);
-        if ($action === 'evaluateQueue') {
-            $recordIds = $this->getProjectSetting('queue_record_cache', $project_id);
-            if (!is_array($recordIds)) $recordIds = [];
-            return [
-                'success' => true,
-                'queue' => $this->evaluateQueue($project_id, $recordIds),
-                'evaluated_at' => $this->getProjectSetting('queue_last_full_evaluation', $project_id) ?: null,
-            ];
-        }
-        if ($action === 'refreshQueue') {
-            $queue = $this->refreshQueue($project_id);
-            return [
-                'success' => true,
-                'queue' => $queue,
-                'evaluated_at' => $this->getProjectSetting('queue_last_full_evaluation', $project_id),
-            ];
-        }
-        if ($action === 'generateLetters') return $this->generateLetters($project_id, $payload['items']);
-        if ($action === 'resolveLetters') return $this->resolveLetters($project_id, $payload['items']);
-        if ($action === 'generateAndResolveLetters') return $this->generateAndResolveLetters($project_id, $payload['items']);
-        if ($action === 'unresolveLetter') return $this->unresolveLetter($project_id, $payload['record_id'], $payload['rule_id']);
-        if ($action === 'getArchive') return ['success' => true, 'archive' => $this->getArchive($project_id)];
-        if ($action === 'testMerge') return $this->testMerge($project_id, $payload['rule_id'], $payload['record_id']);
-
-        return ['success' => false, 'error' => 'Unknown action'];
     }
 
     public function getProjectConfig($pid): array
@@ -641,132 +637,6 @@ class MailMerge extends AbstractExternalModule
         return ['success' => true, 'generated' => $generated, 'files' => $files, 'errors' => $errors];
     }
 
-    public function testMerge($pid, $ruleId, $recordId): array
-    {
-        $rules = [];
-        foreach ($this->getLetterRules($pid) as $r)
-            $rules[$r['id']] = $r;
-
-        $rule = $rules[$ruleId] ?? null;
-        if (!$rule) return ['success' => false, 'error' => 'Rule not found'];
-
-        return $this->mergeSingleLetter($pid, $rule, $recordId, true);
-    }
-
-    private function mergeSingleLetter($pid, $rule, $recordId, $isTest = false): array
-    {
-        $docId = $rule['template_doc_id'];
-        if (!$docId) return ['success' => false, 'error' => 'No template associated with rule'];
-
-        $tmplPath = Files::copyEdocToTemp($docId);
-        if (!$tmplPath || !file_exists($tmplPath))
-            return ['success' => false, 'error' => 'Failed to access template file'];
-
-        $eventId = $rule['event_id'] ?: null;
-        $data = REDCap::getData($pid, 'array', $recordId);
-        $allRecordEvents = $data[$recordId] ?? [];
-        $primaryEvent = $eventId ?: array_key_first($allRecordEvents);
-        $recordData = $allRecordEvents[$primaryEvent] ?? [];
-
-        $mergePayload = [
-            'record_id' => $recordId,
-            'today' => date('m/d/Y'),
-            'today_date' => date('F j, Y'),
-        ];
-
-        foreach ($allRecordEvents as $evId => $evRow) {
-            if ($evId == $primaryEvent) continue;
-            foreach ($evRow as $f => $v) {
-                if (!is_array($v) && (string)$v !== '' && !isset($mergePayload[$f])) {
-                    $mergePayload[$f] = (string)$v;
-                }
-            }
-        }
-
-        foreach ($recordData as $f => $v) {
-            if (!is_array($v) && (string)$v !== '') {
-                $mergePayload[$f] = (string)$v;
-            }
-        }
-
-        foreach ($rule['mappings'] ?: [] as $m) {
-            $tag = trim($m['tag']);
-            $source = trim($m['source']);
-            if (!$tag || $source === '') continue;
-            $mergePayload[$tag] = $this->resolveMappingSource($source, $recordId, $primaryEvent, $pid, $recordData, $allRecordEvents);
-        }
-
-        $outPath = tempnam(sys_get_temp_dir(), 'ltr_') . '.docx';
-        $ok = DocxEngine::merge($tmplPath, $mergePayload, $outPath);
-        @unlink($tmplPath);
-
-        if (!$ok || !file_exists($outPath))
-            return ['success' => false, 'error' => 'Word document merge failed'];
-
-        $scheme = trim($rule['filename_scheme'] ?? '') ?: '{record}_{letter_name}';
-        $filename = $this->resolvePlaceholders($scheme, $recordId, $rule['title']);
-        $filename = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $filename);
-        if (!str_ends_with(strtolower($filename), '.docx')) $filename .= '.docx';
-
-        $autoMode = $this->getProjectSetting('automation_mode', $pid) ?: 'queued';
-        $serverPath = trim((string)$this->getProjectSetting('server_output_path', $pid));
-        if ($autoMode === 'server_path' && $serverPath !== '') {
-            @mkdir($serverPath, 0775, true);
-            copy($outPath, rtrim($serverPath, '/\\') . DIRECTORY_SEPARATOR . $filename);
-        }
-
-        $tempNamedDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'mm_' . uniqid();
-        @mkdir($tempNamedDir, 0777, true);
-        $namedOutPath = $tempNamedDir . DIRECTORY_SEPARATOR . $filename;
-        copy($outPath, $namedOutPath);
-
-        $outDocId = $this->saveFile($namedOutPath, $pid);
-        @unlink($namedOutPath);
-        @rmdir($tempNamedDir);
-        @unlink($outPath);
-        if (!$outDocId) return ['success' => false, 'error' => 'Failed to store generated letter'];
-
-        // Ensure doc_name in edocs metadata matches final filename
-        $this->query("UPDATE redcap_edocs_metadata SET doc_name = ? WHERE doc_id = ? AND project_id = ?", [$filename, $outDocId, $pid]);
-
-        $letterFolder = $this->getProjectSetting('file_repo_letters_folder', $pid) ?: 'MailMerge Letters/{date}';
-        $this->addToFileRepoFolder($outDocId, $pid, "Generated Letter: {$filename}", $letterFolder, $recordId, $rule['title']);
-
-        if (!$isTest && !empty($rule['flag_field'])) {
-            $flagField = trim($rule['flag_field']);
-            $flagValue = '1';
-            $dict = REDCap::getDataDictionary($pid, 'array', false, [$flagField]);
-            $valType = $dict[$flagField]['text_validation_type_or_show_slider_number'] ?? '';
-            if (str_starts_with($valType, 'datetime_seconds')) $flagValue = date('Y-m-d H:i:s');
-            else if (str_starts_with($valType, 'datetime')) $flagValue = date('Y-m-d H:i');
-            else if (str_starts_with($valType, 'date')) $flagValue = date('Y-m-d');
-
-            $isLongitudinal = REDCap::isLongitudinal();
-            $targetEvId = $eventId ?: $primaryEvent;
-            $evName = ($isLongitudinal && $targetEvId) ? REDCap::getEventNames(true, false, $targetEvId) : null;
-            $saveRow = [
-                'record_id' => $recordId,
-                $flagField => $flagValue,
-            ];
-            if ($evName) $saveRow['redcap_event_name'] = $evName;
-
-            REDCap::saveData($pid, 'json', json_encode([$saveRow]));
-        }
-
-        if (!$isTest)
-            $this->log('Generated letter', [
-                'project_id' => $pid,
-                'record' => (string)$recordId,
-                'rule_id' => (string)$rule['id'],
-                'rule_title' => $rule['title'],
-                'filename' => $filename,
-                'doc_id' => $outDocId,
-                'username' => defined('USERID') ? USERID : 'System',
-            ]);
-
-        return ['success' => true, 'doc_id' => $outDocId, 'filename' => $filename];
-    }
-
     public function resolveLetters($pid, $items): array
     {
         if (empty($items)) return ['success' => false, 'error' => 'No items specified'];
@@ -1003,5 +873,117 @@ class MailMerge extends AbstractExternalModule
             $total += $res['generated'];
         }
         return "MailMerge cron completed: generated {$total} letters across projects.";
+    }
+
+    private function mergeSingleLetter($pid, $rule, $recordId): array
+    {
+        $docId = $rule['template_doc_id'];
+        if (!$docId) return ['success' => false, 'error' => 'No template associated with rule'];
+
+        $tmplPath = Files::copyEdocToTemp($docId);
+        if (!$tmplPath || !file_exists($tmplPath))
+            return ['success' => false, 'error' => 'Failed to access template file'];
+
+        $eventId = $rule['event_id'] ?: null;
+        $data = REDCap::getData($pid, 'array', $recordId);
+        $allRecordEvents = $data[$recordId] ?? [];
+        $primaryEvent = $eventId ?: array_key_first($allRecordEvents);
+        $recordData = $allRecordEvents[$primaryEvent] ?? [];
+
+        $mergePayload = [
+            'record_id' => $recordId,
+            'today' => date('m/d/Y'),
+            'today_date' => date('F j, Y'),
+        ];
+
+        foreach ($allRecordEvents as $evId => $evRow) {
+            if ($evId == $primaryEvent) continue;
+            foreach ($evRow as $f => $v) {
+                if (!is_array($v) && (string)$v !== '' && !isset($mergePayload[$f])) {
+                    $mergePayload[$f] = (string)$v;
+                }
+            }
+        }
+
+        foreach ($recordData as $f => $v) {
+            if (!is_array($v) && (string)$v !== '') {
+                $mergePayload[$f] = (string)$v;
+            }
+        }
+
+        foreach ($rule['mappings'] ?: [] as $m) {
+            $tag = trim($m['tag']);
+            $source = trim($m['source']);
+            if (!$tag || $source === '') continue;
+            $mergePayload[$tag] = $this->resolveMappingSource($source, $recordId, $primaryEvent, $pid, $recordData, $allRecordEvents);
+        }
+
+        $outPath = tempnam(sys_get_temp_dir(), 'ltr_') . '.docx';
+        $ok = DocxEngine::merge($tmplPath, $mergePayload, $outPath);
+        @unlink($tmplPath);
+
+        if (!$ok || !file_exists($outPath))
+            return ['success' => false, 'error' => 'Word document merge failed'];
+
+        $scheme = trim($rule['filename_scheme'] ?? '') ?: '{record}_{letter_name}';
+        $filename = $this->resolvePlaceholders($scheme, $recordId, $rule['title']);
+        $filename = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $filename);
+        if (!str_ends_with(strtolower($filename), '.docx')) $filename .= '.docx';
+
+        $autoMode = $this->getProjectSetting('automation_mode', $pid) ?: 'queued';
+        $serverPath = trim((string)$this->getProjectSetting('server_output_path', $pid));
+        if ($autoMode === 'server_path' && $serverPath !== '') {
+            @mkdir($serverPath, 0775, true);
+            copy($outPath, rtrim($serverPath, '/\\') . DIRECTORY_SEPARATOR . $filename);
+        }
+
+        $tempNamedDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'mm_' . uniqid();
+        @mkdir($tempNamedDir, 0777, true);
+        $namedOutPath = $tempNamedDir . DIRECTORY_SEPARATOR . $filename;
+        copy($outPath, $namedOutPath);
+
+        $outDocId = $this->saveFile($namedOutPath, $pid);
+        @unlink($namedOutPath);
+        @rmdir($tempNamedDir);
+        @unlink($outPath);
+        if (!$outDocId) return ['success' => false, 'error' => 'Failed to store generated letter'];
+
+        $this->query("UPDATE redcap_edocs_metadata SET doc_name = ? WHERE doc_id = ? AND project_id = ?", [$filename, $outDocId, $pid]);
+
+        $letterFolder = $this->getProjectSetting('file_repo_letters_folder', $pid) ?: 'MailMerge Letters/{date}';
+        $this->addToFileRepoFolder($outDocId, $pid, "Generated Letter: {$filename}", $letterFolder, $recordId, $rule['title']);
+
+        if (!empty($rule['flag_field'])) {
+            $flagField = trim($rule['flag_field']);
+            $flagValue = '1';
+            $dict = REDCap::getDataDictionary($pid, 'array', false, [$flagField]);
+            $valType = $dict[$flagField]['text_validation_type_or_show_slider_number'] ?? '';
+            if (str_starts_with($valType, 'datetime_seconds')) $flagValue = date('Y-m-d H:i:s');
+            else if (str_starts_with($valType, 'datetime')) $flagValue = date('Y-m-d H:i');
+            else if (str_starts_with($valType, 'date')) $flagValue = date('Y-m-d');
+
+            $isLongitudinal = REDCap::isLongitudinal();
+            $targetEvId = $eventId ?: $primaryEvent;
+            $evName = ($isLongitudinal && $targetEvId) ? REDCap::getEventNames(true, false, $targetEvId) : null;
+            $saveRow = [
+                'record_id' => $recordId,
+                $flagField => $flagValue,
+            ];
+            if ($evName) $saveRow['redcap_event_name'] = $evName;
+
+            REDCap::saveData($pid, 'json', json_encode([$saveRow]));
+        }
+
+        $this->log('Generated letter', [
+            'project_id' => $pid,
+            'record' => (string)$recordId,
+            'rule_id' => (string)$rule['id'],
+            'rule_title' => $rule['title'],
+            'filename' => $filename,
+            'doc_id' => $outDocId,
+            'username' => defined('USERID') ? USERID : 'System',
+        ]);
+
+        return ['success' => true, 'doc_id' => $outDocId, 'filename' => $filename];
     }
 }

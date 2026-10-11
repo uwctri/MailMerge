@@ -29,20 +29,16 @@
   },
   "auth-ajax-actions": [
     "uploadTemplates",
-    "getTemplates",
     "deleteTemplate",
     "saveLetterRules",
-    "getLetterRules",
     "saveSettings",
-    "getSettings",
     "evaluateQueue",
     "refreshQueue",
     "generateLetters",
     "resolveLetters",
     "generateAndResolveLetters",
     "unresolveLetter",
-    "getArchive",
-    "testMerge"
+    "getArchive"
   ],
   "crons": [
     {
