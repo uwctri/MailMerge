@@ -45,18 +45,18 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 $indexJsUrl = $module->getUrl('index.js');
 ?>
 <script>
-    const mailMergeModule = <?= $module->getJavascriptModuleObjectName() ?>;
-    mailMergeModule.config = <?= json_encode([
-                                    'templates' => $templates,
-                                    'rules' => $rules,
-                                    'settings' => $settings,
-                                    'queueLastFullEvaluation' => $queueLastFullEvaluation,
-                                    'allowServerPath' => $allowServerPath,
-                                    'events' => $events,
-                                ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    const module = <?= $module->getJavascriptModuleObjectName() ?>;
+    module.config = <?= json_encode([
+        'templates' => $templates,
+        'rules' => $rules,
+        'settings' => $settings,
+        'queueLastFullEvaluation' => $queueLastFullEvaluation,
+        'allowServerPath' => $allowServerPath,
+        'events' => $events,
+    ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 </script>
-<script src="<?= htmlspecialchars($indexJsUrl, ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars($alpineUrl, ENT_QUOTES) ?>" defer></script>
+<script src="<?= htmlspecialchars($indexJsUrl, ENT_QUOTES) ?>" defer></script>
 
 <style>
     [x-cloak] {
