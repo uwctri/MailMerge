@@ -36,6 +36,7 @@
     "saveSettings",
     "getSettings",
     "evaluateQueue",
+    "refreshQueue",
     "generateLetters",
     "resolveLetters",
     "generateAndResolveLetters",
@@ -46,9 +47,9 @@
   "crons": [
     {
       "cron_name": "mail_merge_letters",
-      "cron_description": "Evaluates active letter rules daily and generates due letters.",
+      "cron_description": "Performs a full queue evaluation twice daily and generates due letters.",
       "method": "cronMailMergeLetters",
-      "cron_frequency": 86400,
+      "cron_frequency": 43200,
       "cron_max_run_time": 3600
     }
   ]

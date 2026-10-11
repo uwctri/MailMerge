@@ -39,6 +39,7 @@ if ($isLongitudinal) {
 $templates = $module->getTemplates($projectId);
 $rules = $module->getLetterRules($projectId);
 $settings = $module->getProjectConfig($projectId);
+$queueLastFullEvaluation = $module->getProjectSetting('queue_last_full_evaluation', $projectId) ?: null;
 $allowServerPath = (bool)$module->getSystemSetting('allow_server_path_output');
 $alpineUrl = $module->getUrl('alpine.min.js');
 ?>
@@ -209,18 +210,18 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             <!-- Queue Tab Actions -->
             <template x-if="activeTab === 'queue'">
                 <div class="dropdown">
-                    <button type="button" class="btn btn-primary px-3 py-2 shadow-sm fw-bold dropdown-toggle d-inline-flex align-items-center" data-bs-toggle="dropdown" aria-expanded="false" :disabled="selected.length === 0 || generating">
-                        <i class="fas me-2" :class="generating ? 'fa-spinner fa-spin' : 'fa-tasks'"></i>
-                        <span x-text="generating ? 'Processing...' : ('Actions (' + selected.length + ')')"></span>
+                    <button type="button" class="btn btn-primary px-3 py-2 shadow-sm fw-bold dropdown-toggle d-inline-flex align-items-center" data-bs-toggle="dropdown" aria-expanded="false" :disabled="generating || evaluatingQueue">
+                        <i class="fas me-2" :class="generating || evaluatingQueue ? 'fa-spinner fa-spin' : 'fa-tasks'"></i>
+                        <span x-text="evaluatingQueue ? 'Evaluating...' : (generating ? 'Processing...' : ('Actions (' + selected.length + ')'))"></span>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end shadow">
                         <li>
-                            <button type="button" class="dropdown-item py-2" @click="generateSelected()">
+                            <button type="button" class="dropdown-item py-2" @click="generateSelected()" :disabled="selected.length === 0 || generating || evaluatingQueue">
                                 <i class="fas fa-print text-primary me-2"></i>Generate Selected
                             </button>
                         </li>
                         <li>
-                            <button type="button" class="dropdown-item py-2" @click="confirmResolveSelected()">
+                            <button type="button" class="dropdown-item py-2" @click="confirmResolveSelected()" :disabled="selected.length === 0 || generating || evaluatingQueue">
                                 <i class="fas fa-check text-success me-2"></i>Mark Selected as Resolved
                             </button>
                         </li>
@@ -228,8 +229,16 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                             <hr class="dropdown-divider my-1">
                         </li>
                         <li>
-                            <button type="button" class="dropdown-item py-2" @click="confirmBothSelected()">
+                            <button type="button" class="dropdown-item py-2" @click="confirmBothSelected()" :disabled="selected.length === 0 || generating || evaluatingQueue">
                                 <i class="fas fa-magic text-primary me-2"></i>Both (Generate & Mark Resolved)
+                            </button>
+                        </li>
+                        <li>
+                            <hr class="dropdown-divider my-1">
+                        </li>
+                        <li>
+                            <button type="button" class="dropdown-item py-2" @click="runFullQueueEvaluation()" :disabled="generating || evaluatingQueue">
+                                <i class="fas fa-sync-alt text-secondary me-2"></i>Run Full Evaluation Now
                             </button>
                         </li>
                     </ul>
@@ -288,15 +297,15 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                     <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-tasks me-2 text-primary"></i>Letters Due</h5>
                     <span class="badge bg-primary" x-text="queue.length + ' Pending'"></span>
                 </div>
+                <div>
+                    <label for="queueSearch" class="visually-hidden">Search queue</label>
+                    <input id="queueSearch" type="search" class="form-control" style="width: 240px; max-width: 45vw;" placeholder="Search queue..." x-model="queueSearch" @input="currentPage = 1">
+                </div>
             </div>
             <div class="card-body p-0">
                 <!-- Records Table & Pagination -->
                 <template x-if="!loadingQueue && queue.length > 0">
                     <div>
-                        <div class="p-3 border-bottom">
-                            <label for="queueSearch" class="visually-hidden">Search queue</label>
-                            <input id="queueSearch" type="search" class="form-control" placeholder="Search queue..." x-model="queueSearch" @input="currentPage = 1">
-                        </div>
                         <div class="table-responsive" x-show="filteredQueue().length > 0">
                             <table class="table table-hover align-middle mb-0 w-100" style="table-layout: auto;">
                                 <thead class="table-light small text-muted text-uppercase">
@@ -334,10 +343,10 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                             </td>
                                             <td class="text-end">
                                                 <div class="d-flex align-items-center justify-content-end gap-1">
-                                                    <button type="button" class="btn btn-outline-primary btn-sm" style="padding: 0.35rem 0.65rem;" title="Generate Letter" @click="generateSingle(item)" :disabled="generating">
+                                                    <button type="button" class="btn btn-outline-primary btn-sm" style="padding: 0.35rem 0.65rem;" title="Generate Letter" @click="generateSingle(item)" :disabled="generating || evaluatingQueue">
                                                         <i class="fas fa-print"></i>
                                                     </button>
-                                                    <button type="button" class="btn btn-outline-success btn-sm" style="padding: 0.35rem 0.65rem;" title="Mark as Resolved / Printed" @click="confirmResolveSingle(item)" :disabled="generating">
+                                                    <button type="button" class="btn btn-outline-success btn-sm" style="padding: 0.35rem 0.65rem;" title="Mark as Resolved / Printed" @click="confirmResolveSingle(item)" :disabled="generating || evaluatingQueue">
                                                         <i class="fas fa-check"></i>
                                                     </button>
                                                 </div>
@@ -357,6 +366,8 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                     <label for="pageSizeInput" class="mb-0 text-nowrap">Per page:</label>
                                     <input id="pageSizeInput" type="number" min="1" step="1" class="form-control form-control-sm text-center bg-white py-0 px-1" style="width: 60px; height: 28px;" x-model.number="pageSize" @input="onPageSizeChange()">
                                 </div>
+                                <span class="mx-1 text-muted">|</span>
+                                <span>Full evaluation last ran: <strong class="text-dark" x-text="queueEvaluationLabel()"></strong></span>
                             </div>
                             <div class="d-flex align-items-center gap-1" x-show="totalPages() > 1">
                                 <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" :disabled="currentPage <= 1" @click="setPage(1)" title="First Page">
@@ -407,9 +418,12 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                     <div class="d-flex flex-column align-items-center justify-content-center text-center py-5 w-100">
                         <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
                         <h5 class="fw-bold text-dark">All caught up!</h5>
-                        <p class="small text-muted mb-0">No participants currently qualify for letters.</p>
+                        <p class="small text-muted mb-0" x-text="queueLastFullEvaluation ? 'No participants currently qualify for letters.' : 'Run a full evaluation to find participants who qualify for letters.'"></p>
                     </div>
                 </template>
+                <div class="d-flex align-items-center justify-content-between p-3 border-top bg-light text-muted small" x-show="!loadingQueue && (queue.length === 0 || filteredQueue().length === 0)">
+                    <span>Full queue evaluation last ran: <strong class="text-dark" x-text="queueEvaluationLabel()"></strong></span>
+                </div>
             </div>
         </div>
     </div>
@@ -516,15 +530,15 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                     <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-archive me-2 text-primary"></i>Letter Archive</h5>
                     <span class="badge bg-secondary" x-text="archive.length + ' Logged Letters'"></span>
                 </div>
+                <div>
+                    <label for="archiveSearch" class="visually-hidden">Search archive</label>
+                    <input id="archiveSearch" type="search" class="form-control" style="width: 240px; max-width: 45vw;" placeholder="Search archive..." x-model="archiveSearch" @input="archiveCurrentPage = 1">
+                </div>
             </div>
             <div class="card-body p-0">
                 <!-- Archive Table & Pagination -->
                 <template x-if="!loadingArchive && archive.length > 0">
                     <div>
-                        <div class="p-3 border-bottom">
-                            <label for="archiveSearch" class="visually-hidden">Search archive</label>
-                            <input id="archiveSearch" type="search" class="form-control" placeholder="Search archive..." x-model="archiveSearch" @input="archiveCurrentPage = 1">
-                        </div>
                         <div class="table-responsive" x-show="filteredArchive().length > 0">
                             <table class="table table-hover align-middle mb-0 w-100" style="table-layout: auto;">
                                 <thead class="table-light small text-muted text-uppercase">
@@ -567,10 +581,10 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                                     <template x-if="!item.download_url">
                                                         <span class="badge bg-light text-muted border me-1">Missing</span>
                                                     </template>
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm" style="padding: 0.35rem 0.65rem;" title="Re-generate Letter" @click="regenerateFromArchive(item)" :disabled="generating">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" style="padding: 0.35rem 0.65rem;" title="Re-generate Letter" @click="regenerateFromArchive(item)" :disabled="generating || evaluatingQueue">
                                                         <i class="fas fa-sync-alt"></i>
                                                     </button>
-                                                    <button type="button" class="btn btn-outline-warning text-dark btn-sm" style="padding: 0.35rem 0.65rem;" title="Return to Queue" @click="confirmReturnToQueue(item)" :disabled="generating">
+                                                    <button type="button" class="btn btn-outline-warning text-dark btn-sm" style="padding: 0.35rem 0.65rem;" title="Return to Queue" @click="confirmReturnToQueue(item)" :disabled="generating || evaluatingQueue">
                                                         <i class="fas fa-undo"></i>
                                                     </button>
                                                 </div>
@@ -985,6 +999,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             templates: <?= json_encode($templates) ?>,
             rules: <?= json_encode($rules) ?>,
             settings: <?= json_encode($settings) ?>,
+            queueLastFullEvaluation: <?= json_encode($queueLastFullEvaluation) ?>,
             allowServerPath: <?= json_encode($allowServerPath) ?>,
             events: <?= json_encode($events) ?>,
             queue: [],
@@ -993,6 +1008,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             pageSize: 20,
             currentPage: 1,
             loadingQueue: true,
+            evaluatingQueue: false,
             generating: false,
             uploadQueue: [],
             isDragging: false,
@@ -1069,6 +1085,13 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 
             itemKey(item) {
                 return String(item.record_id) + '_' + String(item.rule_id) + '_' + String(item.event_id || '');
+            },
+
+            queueEvaluationLabel() {
+                if (!this.queueLastFullEvaluation) return 'Never';
+                const timestamp = Number(this.queueLastFullEvaluation);
+                if (!Number.isFinite(timestamp)) return 'Unknown';
+                return new Date(timestamp * 1000).toLocaleString();
             },
 
             filteredQueue() {
@@ -1149,6 +1172,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                     const res = await jsmObj.ajax('evaluateQueue', {});
                     if (res.success) {
                         this.queue = res.queue || [];
+                        this.queueLastFullEvaluation = res.evaluated_at || null;
                     } else {
                         this.showAlert(res.error || 'Failed to evaluate queue', 'danger');
                     }
@@ -1156,6 +1180,26 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                     this.showAlert('Queue evaluation failed: ' + e.message, 'danger');
                 } finally {
                     this.loadingQueue = false;
+                }
+            },
+
+            async runFullQueueEvaluation() {
+                this.evaluatingQueue = true;
+                try {
+                    const res = await jsmObj.ajax('refreshQueue', {});
+                    if (res.success) {
+                        this.queue = res.queue || [];
+                        this.queueLastFullEvaluation = res.evaluated_at || null;
+                        this.selected = [];
+                        this.currentPage = 1;
+                        this.showAlert(`Full queue evaluation complete. ${this.queue.length} letter(s) currently qualify.`, 'success');
+                    } else {
+                        this.showAlert(res.error || 'Full queue evaluation failed', 'danger');
+                    }
+                } catch (e) {
+                    this.showAlert('Full queue evaluation failed: ' + e.message, 'danger');
+                } finally {
+                    this.evaluatingQueue = false;
                 }
             },
 

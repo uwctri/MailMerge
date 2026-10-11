@@ -104,7 +104,23 @@ class MailMerge extends AbstractExternalModule
         if ($action === 'saveLetterRules') return $this->saveLetterRules($project_id, $payload['rules']);
         if ($action === 'getSettings') return ['success' => true, 'settings' => $this->getProjectConfig($project_id)];
         if ($action === 'saveSettings') return $this->saveProjectConfig($project_id, $payload['settings']);
-        if ($action === 'evaluateQueue') return ['success' => true, 'queue' => $this->evaluateQueue($project_id)];
+        if ($action === 'evaluateQueue') {
+            $recordIds = $this->getProjectSetting('queue_record_cache', $project_id);
+            if (!is_array($recordIds)) $recordIds = [];
+            return [
+                'success' => true,
+                'queue' => $this->evaluateQueue($project_id, $recordIds),
+                'evaluated_at' => $this->getProjectSetting('queue_last_full_evaluation', $project_id) ?: null,
+            ];
+        }
+        if ($action === 'refreshQueue') {
+            $queue = $this->refreshQueue($project_id);
+            return [
+                'success' => true,
+                'queue' => $queue,
+                'evaluated_at' => $this->getProjectSetting('queue_last_full_evaluation', $project_id),
+            ];
+        }
         if ($action === 'generateLetters') return $this->generateLetters($project_id, $payload['items']);
         if ($action === 'resolveLetters') return $this->resolveLetters($project_id, $payload['items']);
         if ($action === 'generateAndResolveLetters') return $this->generateAndResolveLetters($project_id, $payload['items']);
@@ -435,12 +451,14 @@ class MailMerge extends AbstractExternalModule
         return $clean;
     }
 
-    public function evaluateQueue($pid): array
+    public function evaluateQueue($pid, ?array $recordIds = null): array
     {
         $rules = $this->getLetterRules($pid);
         if (empty($rules)) return [];
 
-        $allData = REDCap::getData($pid, 'array');
+        if ($recordIds !== null && empty($recordIds)) return [];
+
+        $allData = REDCap::getData($pid, 'array', $recordIds);
         if (empty($allData)) return [];
 
         $isLongitudinal = REDCap::isLongitudinal();
@@ -574,6 +592,18 @@ class MailMerge extends AbstractExternalModule
             }
         }
 
+        return $queue;
+    }
+
+    public function refreshQueue($pid): array
+    {
+        $queue = $this->evaluateQueue($pid);
+        $recordIds = array_values(array_unique(array_map(
+            static fn($item) => (string)$item['record_id'],
+            $queue
+        )));
+        $this->setProjectSetting('queue_record_cache', $recordIds, $pid);
+        $this->setProjectSetting('queue_last_full_evaluation', time(), $pid);
         return $queue;
     }
 
@@ -870,6 +900,11 @@ class MailMerge extends AbstractExternalModule
             'username' => $username,
         ]);
 
+        $cachedRecordIds = $this->getProjectSetting('queue_record_cache', $pid);
+        if (!is_array($cachedRecordIds)) $cachedRecordIds = [];
+        $cachedRecordIds[] = (string)$recordId;
+        $this->setProjectSetting('queue_record_cache', array_values(array_unique($cachedRecordIds)), $pid);
+
         return ['success' => true];
     }
 
@@ -959,8 +994,8 @@ class MailMerge extends AbstractExternalModule
         $total = 0;
         foreach ($pids as $pid) {
             $mode = $this->getProjectSetting('automation_mode', $pid) ?: 'queued';
+            $queue = $this->refreshQueue($pid);
             if ($mode === 'queued') continue;
-            $queue = $this->evaluateQueue($pid);
             if (empty($queue)) continue;
             $res = $this->generateLetters($pid, $queue);
             $total += $res['generated'];
