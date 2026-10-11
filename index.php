@@ -148,9 +148,9 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 
     .rule-card .row,
     .card-body .row {
-        margin-left: -0.5rem !important;
-        margin-right: -0.5rem !important;
-        max-width: calc(100% + 1rem) !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        max-width: 100% !important;
     }
 
     .rule-card .row>*,
@@ -185,23 +185,36 @@ $alpineUrl = $module->getUrl('alpine.min.js');
         text-overflow: ellipsis !important;
     }
 
-    #queueTable td {
-        overflow-wrap: anywhere;
-    }
-
     #center {
         min-height: calc(100vh - 120px) !important;
+        min-width: 0 !important;
+        overflow-x: hidden !important;
+    }
+
+    .queue-table-wrapper,
+    .rule-mapping-table-wrapper {
+        max-width: 100%;
+        overflow-x: hidden !important;
+    }
+
+    #queueTable th,
+    #queueTable td {
+        white-space: normal;
+        overflow-wrap: anywhere;
     }
 
     .mailmerge-main-container {
         min-height: calc(100vh - 220px);
         min-width: 0;
+        width: 100%;
         max-width: 100%;
-        overflow-x: clip;
+        box-sizing: border-box;
+        overflow-x: hidden;
     }
 
     .mailmerge-main-container > [x-show] {
         min-width: 0;
+        width: 100%;
         max-width: 100%;
     }
 </style>
@@ -319,7 +332,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                 <!-- Records Table & Pagination -->
                 <template x-if="!loadingQueue && queue.length > 0">
                     <div>
-                        <div class="table-responsive" x-show="filteredQueue().length > 0">
+                        <div class="table-responsive queue-table-wrapper" x-show="filteredQueue().length > 0">
                             <table id="queueTable" class="table table-hover align-middle mb-0 w-100" style="table-layout: fixed;">
                                 <thead class="table-light small text-muted text-uppercase">
                                     <tr>
@@ -743,7 +756,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                 <template x-for="(r, idx) in rules" :key="r.id">
                     <div class="rule-card rounded-3 p-3 mb-3 position-relative">
                         <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2 flex-wrap gap-2">
-                            <div class="d-flex align-items-center gap-2 flex-grow-1" style="min-width: 240px; max-width: 560px;">
+                            <div class="d-flex align-items-center gap-2 flex-grow-1" style="min-width: 0; max-width: 560px;">
                                 <div class="input-group input-group-sm flex-grow-1">
                                     <span class="input-group-text bg-secondary text-white fw-bold" x-text="'Rule #' + (idx + 1)"></span>
                                     <input type="text" class="form-control fw-bold" x-model="r.title" placeholder="Letter Title (e.g. Visit 1 Letter)">
@@ -921,7 +934,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                 </div>
                             </div>
 
-                            <div class="table-responsive">
+                            <div class="table-responsive rule-mapping-table-wrapper">
                                 <table class="table table-sm align-middle mb-0 w-100" style="table-layout: fixed;">
                                     <thead class="table-light small text-muted">
                                         <tr>
