@@ -1,4 +1,4 @@
-# Mail Merge & Letter Creation REDCap External Module (`mailmerge_v1.0.0`)
+# MailMerge - REDCap External Module
 
 An automated Word document (`.docx`) mail merge, template management, and letter generation engine for REDCap.
 

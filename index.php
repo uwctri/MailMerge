@@ -872,11 +872,9 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                         </div>
                                         <ul class="list-unstyled small text-muted mb-0 d-flex flex-column gap-1">
                                             <li><span class="text-secondary fw-semibold">If / Else:</span> <code>if([age] &gt;= 18, 'Adult', 'Minor')</code></li>
-                                            <li><span class="text-secondary fw-semibold">Blank Check:</span> <code>if([ph] != '', [ph], 'None')</code></li>
                                             <li><span class="text-secondary fw-semibold">Join Text:</span> <code>concat([first_name], ' ', [last_name])</code></li>
                                             <li><span class="text-secondary fw-semibold">Age / Days:</span> <code>datediff([dob], 'today', 'y')</code></li>
                                             <li><span class="text-secondary fw-semibold">Rounding:</span> <code>round([weight] / 2.2, 1)</code></li>
-                                            <li><span class="text-secondary fw-semibold">Case:</span> <code>upper([last_name])</code></li>
                                             <li class="mt-auto pt-1 text-muted fst-italic" style="font-size: 0.72rem;">
                                                 Plain text renders as static text
                                             </li>
