@@ -211,8 +211,8 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             <template x-if="activeTab === 'queue'">
                 <div class="dropdown">
                     <button type="button" class="btn btn-primary px-3 py-2 shadow-sm fw-bold dropdown-toggle d-inline-flex align-items-center" data-bs-toggle="dropdown" aria-expanded="false" :disabled="generating || evaluatingQueue">
-                        <i class="fas me-2" :class="generating || evaluatingQueue ? 'fa-spinner fa-spin' : 'fa-tasks'"></i>
-                        <span x-text="evaluatingQueue ? 'Evaluating...' : (generating ? 'Processing...' : ('Actions (' + selected.length + ')'))"></span>
+                        <i class="fas fa-tasks me-2"></i>
+                        <span x-text="generating ? 'Processing...' : ('Actions (' + selected.length + ')')"></span>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end shadow">
                         <li>
@@ -421,9 +421,6 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                         <p class="small text-muted mb-0" x-text="queueLastFullEvaluation ? 'No participants currently qualify for letters.' : 'Run a full evaluation to find participants who qualify for letters.'"></p>
                     </div>
                 </template>
-                <div class="d-flex align-items-center justify-content-between p-3 border-top bg-light text-muted small" x-show="!loadingQueue && (queue.length === 0 || filteredQueue().length === 0)">
-                    <span>Full queue evaluation last ran: <strong class="text-dark" x-text="queueEvaluationLabel()"></strong></span>
-                </div>
             </div>
         </div>
     </div>
@@ -1075,7 +1072,11 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             },
 
             init() {
-                this.loadQueue();
+                if (this.queueLastFullEvaluation) {
+                    this.loadQueue();
+                } else {
+                    this.runFullQueueEvaluation(false);
+                }
                 this.loadArchive();
                 this.triggerFooterUpdate();
                 this.$watch('activeTab', () => {
@@ -1183,16 +1184,19 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                 }
             },
 
-            async runFullQueueEvaluation() {
+            async runFullQueueEvaluation(notify = true) {
                 this.evaluatingQueue = true;
+                this.loadingQueue = true;
+                this.selected = [];
                 try {
                     const res = await jsmObj.ajax('refreshQueue', {});
                     if (res.success) {
                         this.queue = res.queue || [];
                         this.queueLastFullEvaluation = res.evaluated_at || null;
-                        this.selected = [];
                         this.currentPage = 1;
-                        this.showAlert(`Full queue evaluation complete. ${this.queue.length} letter(s) currently qualify.`, 'success');
+                        if (notify) {
+                            this.showAlert(`Full queue evaluation complete. ${this.queue.length} letter(s) currently qualify.`, 'success');
+                        }
                     } else {
                         this.showAlert(res.error || 'Full queue evaluation failed', 'danger');
                     }
@@ -1200,6 +1204,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                     this.showAlert('Full queue evaluation failed: ' + e.message, 'danger');
                 } finally {
                     this.evaluatingQueue = false;
+                    this.loadingQueue = false;
                 }
             },
 
