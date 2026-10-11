@@ -634,7 +634,12 @@ class MailMerge extends AbstractExternalModule
             ];
         }
 
-        return ['success' => true, 'generated' => $generated, 'files' => $files, 'errors' => $errors];
+        $result = ['success' => true, 'generated' => $generated, 'files' => $files, 'errors' => $errors];
+        if (count($files) > 1) {
+            $docIds = implode(',', array_column($files, 'doc_id'));
+            $result['zip_download_url'] = $this->getUrl('download.php') . '&doc_ids=' . rawurlencode($docIds);
+        }
+        return $result;
     }
 
     public function resolveLetters($pid, $items): array
@@ -788,6 +793,7 @@ class MailMerge extends AbstractExternalModule
             'generated' => $genRes['generated'],
             'resolved' => $resRes['resolved'],
             'files' => $genRes['files'] ?? [],
+            'zip_download_url' => $genRes['zip_download_url'] ?? null,
             'errors' => $genRes['errors'] ?? [],
         ];
     }
