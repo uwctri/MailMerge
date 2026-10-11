@@ -860,7 +860,6 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                             <li><span class="text-secondary fw-semibold">Date Format:</span> <code>today:m/d/y</code> &rarr; <span class="text-dark"><?= date('m/d/Y') ?></span></li>
                                             <li><span class="text-secondary fw-semibold">Now:</span> <code>now</code> &rarr; <span class="text-dark"><?= date('M j, Y g:i A') ?></span></li>
                                             <li><span class="text-secondary fw-semibold">Time:</span> <code>time</code> (12h) | <code>time:24</code> (24h)</li>
-                                            <li><span class="text-secondary fw-semibold">User:</span> <code>[user_name]</code></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -869,13 +868,15 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                 <div class="col-12 col-md-6 col-xl-3">
                                     <div class="bg-light border rounded-2 p-2 p-md-3 h-100 d-flex flex-column">
                                         <div class="fw-bold text-dark small mb-2 d-flex align-items-center gap-1 border-bottom pb-1">
-                                            <i class="fas fa-code-branch text-primary"></i> Logic & Conditions
+                                            <i class="fas fa-code-branch text-primary"></i> Logic &amp; Functions
                                         </div>
                                         <ul class="list-unstyled small text-muted mb-0 d-flex flex-column gap-1">
-                                            <li><span class="text-secondary fw-semibold">Equality:</span> <code>if([status] = '1', 'Yes', 'No')</code></li>
-                                            <li><span class="text-secondary fw-semibold">Compare:</span> <code>if([age] >= 18, 'Adult', 'Minor')</code></li>
-                                            <li><span class="text-secondary fw-semibold">Action Tag:</span> <code>@IF([v] != '', [v], 'N/A')</code></li>
+                                            <li><span class="text-secondary fw-semibold">If / Else:</span> <code>if([age] &gt;= 18, 'Adult', 'Minor')</code></li>
                                             <li><span class="text-secondary fw-semibold">Blank Check:</span> <code>if([ph] != '', [ph], 'None')</code></li>
+                                            <li><span class="text-secondary fw-semibold">Join Text:</span> <code>concat([first_name], ' ', [last_name])</code></li>
+                                            <li><span class="text-secondary fw-semibold">Age / Days:</span> <code>datediff([dob], 'today', 'y')</code></li>
+                                            <li><span class="text-secondary fw-semibold">Rounding:</span> <code>round([weight] / 2.2, 1)</code></li>
+                                            <li><span class="text-secondary fw-semibold">Case:</span> <code>upper([last_name])</code></li>
                                             <li class="mt-auto pt-1 text-muted fst-italic" style="font-size: 0.72rem;">
                                                 Plain text renders as static text
                                             </li>

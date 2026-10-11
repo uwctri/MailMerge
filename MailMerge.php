@@ -326,8 +326,8 @@ class MailMerge extends AbstractExternalModule
             } catch (Throwable $e) {
             }
 
-            // 3. Fallback: try remaining events in longitudinal projects
-            if (!empty($allRecordEvents)) {
+            // 3. Fallback: try remaining events (only when the rule isn't tied to a specific event)
+            if (!$eventId && !empty($allRecordEvents)) {
                 foreach (array_keys($allRecordEvents) as $otherEvId) {
                     if ($otherEvId == $targetEvent) continue;
                     try {
@@ -365,11 +365,12 @@ class MailMerge extends AbstractExternalModule
         if ($stripped === 'record' || $stripped === 'record_id') return (string)$recordId;
         if ($stripped === 'user' || $stripped === 'user_name') return defined('USERID') ? USERID : '';
 
-        // Conditional logic: if(...) or @IF(...) or @CALCTEXT(...)
+        // Logic / function expressions: if(...), datediff(...), concat(...), round(...), @IF(...), @CALCTEXT(...)
         $expr = $clean;
         if (preg_match('/^@(CALCTEXT|calctext)\s*\((.+)\)$/is', $expr, $m)) $expr = trim($m[2]);
         if (str_starts_with($expr, '@')) $expr = substr($expr, 1);
-        if (preg_match('/^if\s*\(.+/i', $expr)) {
+        $logicFunctions = 'if|datediff|concat|concat_ws|round|roundup|rounddown|sum|mean|min|max|abs|sqrt|upper|lower|trim|left|right|mid|length|contains|starts_with|ends_with|replace_text|year|month|day|isnumber|isinteger|isblankormissingcode';
+        if (preg_match('/^(' . $logicFunctions . ')\s*\(.+/i', $expr)) {
             $eval = REDCap::evaluateLogic($expr, $pid, $recordId, $eventId, 1, "", "", null, true);
             if (($eval === null || $eval === false || $eval === '') && !empty($allRecordEvents)) {
                 $uniqueEvents = REDCap::isLongitudinal() ? REDCap::getEventNames(true, false) : [];
@@ -507,23 +508,27 @@ class MailMerge extends AbstractExternalModule
                 $lastRes = $resolutionLogAction[$recStr] ?? null;
                 $isResolved = false;
 
-                if ($lastRes === 'Returned letter to queue') {
-                    $isResolved = false;
-                } else if ($printedField !== '') {
-                    // When printed_flag_field is defined, REDCap field value is the authority
-                    $pVal = trim((string)($row[$printedField] ?? ''));
-                    if ($pVal === '' || $pVal === '0') {
+                // Read a flag field value. When the rule targets a specific event, only that event
+                // is checked so a shared field name on another event can't leak into this rule.
+                $readFlag = function (string $field) use ($row, $recordEvents, $eventId): bool {
+                    $val = trim((string)($row[$field] ?? ''));
+                    if (($val === '' || $val === '0') && !$eventId) {
                         foreach ($recordEvents as $eRow) {
-                            $candidateVal = trim((string)($eRow[$printedField] ?? ''));
+                            $candidateVal = trim((string)($eRow[$field] ?? ''));
                             if ($candidateVal !== '' && $candidateVal !== '0') {
-                                $pVal = $candidateVal;
+                                $val = $candidateVal;
                                 break;
                             }
                         }
                     }
-                    if ($pVal !== '' && $pVal !== '0') {
-                        $isResolved = true;
-                    }
+                    return $val !== '' && $val !== '0';
+                };
+
+                if ($lastRes === 'Returned letter to queue') {
+                    $isResolved = false;
+                } else if ($printedField !== '') {
+                    // When printed_flag_field is defined, REDCap field value is the authority
+                    $isResolved = $readFlag($printedField);
                 } else if ($lastRes === 'Marked letter resolved') {
                     // Only when NO printed_flag_field is configured do we fall back to log action
                     $isResolved = true;
@@ -534,19 +539,7 @@ class MailMerge extends AbstractExternalModule
                 // Determine whether it has been generated
                 $isGenerated = false;
                 if ($flagField !== '') {
-                    $gVal = trim((string)($row[$flagField] ?? ''));
-                    if ($gVal === '' || $gVal === '0') {
-                        foreach ($recordEvents as $eRow) {
-                            $candidateVal = trim((string)($eRow[$flagField] ?? ''));
-                            if ($candidateVal !== '' && $candidateVal !== '0') {
-                                $gVal = $candidateVal;
-                                break;
-                            }
-                        }
-                    }
-                    if ($gVal !== '' && $gVal !== '0') {
-                        $isGenerated = true;
-                    }
+                    $isGenerated = $readFlag($flagField);
                 } else if (isset($generatedInLog[$recStr])) {
                     $isGenerated = true;
                 }
@@ -826,6 +819,8 @@ class MailMerge extends AbstractExternalModule
             if ($isLongitudinal) {
                 $eventsModified = [];
                 foreach ($recData as $evId => $evFields) {
+                    // Event-specific rules only touch their own event
+                    if ($eventId && $evId != $eventId) continue;
                     $evUniqueName = REDCap::getEventNames(true, false, $evId);
                     if (!$evUniqueName) continue;
                     $row = ['record_id' => $recordId, 'redcap_event_name' => $evUniqueName];
