@@ -366,7 +366,7 @@ class MailMerge extends AbstractExternalModule
         if (str_starts_with($stripped, 'today:')) return date(substr($stripped, 6));
 
         if ($stripped === 'now') return date('F j, Y g:i A');
-        if ($stripped === 'now:24') return date('H:i');
+        if ($stripped === 'now:24') return date('Y-m-d H:i');
         if ($stripped === 'now:iso' || $stripped === 'timestamp') return date('Y-m-d H:i:s');
         if (str_starts_with($stripped, 'now:')) return date(substr($stripped, 4));
 

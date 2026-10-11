@@ -47,13 +47,13 @@ $indexJsUrl = $module->getUrl('index.js');
 <script>
     const mailMergeModule = <?= $module->getJavascriptModuleObjectName() ?>;
     mailMergeModule.config = <?= json_encode([
-        'templates' => $templates,
-        'rules' => $rules,
-        'settings' => $settings,
-        'queueLastFullEvaluation' => $queueLastFullEvaluation,
-        'allowServerPath' => $allowServerPath,
-        'events' => $events,
-    ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+                                    'templates' => $templates,
+                                    'rules' => $rules,
+                                    'settings' => $settings,
+                                    'queueLastFullEvaluation' => $queueLastFullEvaluation,
+                                    'allowServerPath' => $allowServerPath,
+                                    'events' => $events,
+                                ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 </script>
 <script src="<?= htmlspecialchars($indexJsUrl, ENT_QUOTES) ?>" defer></script>
 <script src="<?= htmlspecialchars($alpineUrl, ENT_QUOTES) ?>" defer></script>
@@ -225,7 +225,7 @@ $indexJsUrl = $module->getUrl('index.js');
         overflow-x: hidden;
     }
 
-    .mailmerge-main-container > [x-show] {
+    .mailmerge-main-container>[x-show] {
         min-width: 0;
         width: 100%;
         max-width: 100%;
@@ -993,12 +993,46 @@ $indexJsUrl = $module->getUrl('index.js');
         <option value="[today]">[today] - Today's Date (<?= date('F j, Y') ?>)</option>
         <option value="[today:m/d/y]">[today:m/d/y] - US Date (<?= date('m/d/Y') ?>)</option>
         <option value="[today:y-m-d]">[today:y-m-d] - ISO Date (<?= date('Y-m-d') ?>)</option>
+        <option value="[today_usa]">[today_usa] - US Date (<?= date('m/d/Y') ?>)</option>
+        <option value="[date]">[date] - ISO Date (<?= date('Y-m-d') ?>)</option>
         <option value="[now]">[now] - Current Date & Time (<?= date('F j, Y g:i A') ?>)</option>
         <option value="[time]">[time] - 12-Hour Time (<?= date('g:i A') ?>)</option>
+        <option value="time:12">time:12 - 12-Hour Time (<?= date('g:i A') ?>)</option>
         <option value="[time:24]">[time:24] - 24-Hour Time (<?= date('H:i') ?>)</option>
-        <option value="now:24">now:24 - Current 24-Hour Time (<?= date('H:i') ?>)</option>
+        <option value="now:24">now:24 - Current Date &amp; Time (24-hour) (<?= date('Y-m-d H:i') ?>)</option>
+        <option value="now:iso">now:iso - Current Date &amp; Time (ISO) (<?= date('Y-m-d H:i:s') ?>)</option>
+        <option value="timestamp">timestamp - Current Date &amp; Time (ISO) (<?= date('Y-m-d H:i:s') ?>)</option>
         <option value="if([field] = '1', 'Yes', 'No')">if([field] = '1', 'Yes', 'No') - Conditional Variable</option>
+        <option value="concat([field1], ' ', [field2])">concat([field1], ' ', [field2]) - Join text values</option>
+        <option value="concat_ws(' ', [field1], [field2])">concat_ws(' ', [field1], [field2]) - Join values with a separator</option>
+        <option value="datediff([date1], 'today', 'd')">datediff([date1], 'today', 'd') - Days between dates</option>
+        <option value="trim([field])">trim([field]) - Remove leading/trailing spaces</option>
+        <option value="upper([field])">upper([field]) - Convert text to uppercase</option>
+        <option value="lower([field])">lower([field]) - Convert text to lowercase</option>
+        <option value="round([field], 2)">round([field], 2) - Round to 2 decimal places</option>
+        <option value="roundup([field], 0)">roundup([field], 0) - Round up to an integer</option>
+        <option value="rounddown([field], 0)">rounddown([field], 0) - Round down to an integer</option>
+        <option value="abs([field])">abs([field]) - Absolute value</option>
+        <option value="sqrt([field])">sqrt([field]) - Square root</option>
+        <option value="sum([field1], [field2])">sum([field1], [field2]) - Add values</option>
+        <option value="mean([field1], [field2])">mean([field1], [field2]) - Average values</option>
+        <option value="min([field1], [field2])">min([field1], [field2]) - Lowest value</option>
+        <option value="max([field1], [field2])">max([field1], [field2]) - Highest value</option>
+        <option value="left([field], 3)">left([field], 3) - First 3 characters</option>
+        <option value="right([field], 3)">right([field], 3) - Last 3 characters</option>
+        <option value="mid([field], 1, 3)">mid([field], 1, 3) - Select characters from text</option>
+        <option value="year([date_field])">year([date_field]) - Get the year from a date</option>
+        <option value="month([date_field])">month([date_field]) - Get the month from a date</option>
+        <option value="day([date_field])">day([date_field]) - Get the day from a date</option>
+        <option value="[field]:upper">[field]:upper - Format a field as uppercase</option>
+        <option value="[field]:trim">[field]:trim - Trim surrounding spaces</option>
+        <option value="[amount]:currency">[amount]:currency - Format as currency</option>
+        <option value="[amount]:number:2">[amount]:number:2 - Format with 2 decimals</option>
+        <option value="[date_field]:m/d/y">[date_field]:m/d/y - Format a date</option>
+        <option value="[datetime_field]:iso">[datetime_field]:iso - Format as ISO date/time</option>
+        <option value="[record]">[record] - Record ID</option>
         <option value="[record_id]">[record_id] - Record ID</option>
+        <option value="[user]">[user] - Current REDCap User</option>
         <option value="[user_name]">[user_name] - Current REDCap User</option>
         <?php foreach ($fields as $f): ?>
             <option value="[<?= htmlspecialchars($f, ENT_QUOTES) ?>]">[<?= htmlspecialchars($f, ENT_QUOTES) ?>]</option>
