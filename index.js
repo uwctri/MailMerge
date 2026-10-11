@@ -1,4 +1,4 @@
-Alpine.data('mailMergeApp', () => ({
+document.addEventListener('alpine:init', () => Alpine.data('mailMergeApp', () => ({
     activeTab: 'queue',
     templates: module.config.templates,
     rules: module.config.rules,
@@ -715,4 +715,4 @@ Alpine.data('mailMergeApp', () => ({
             this.saving = false;
         }
     }
-}));
+})));
