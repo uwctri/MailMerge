@@ -710,13 +710,13 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                     <span class="input-group-text bg-secondary text-white fw-bold" x-text="'Rule #' + (idx + 1)"></span>
                                     <input type="text" class="form-control fw-bold" x-model="r.title" placeholder="Letter Title (e.g. Visit 1 Letter)">
                                 </div>
-                                <span x-show="!r.enabled" class="badge bg-secondary text-white px-2 py-1 text-nowrap shadow-sm d-inline-flex align-items-center" style="font-size: 0.75rem;">
+                                <span x-show="!r.enabled" class="badge bg-secondary text-white px-2 py-1 text-nowrap shadow-sm" style="font-size: 0.75rem;">
                                     <i class="fas fa-pause-circle me-1"></i>Deactivated
                                 </span>
                             </div>
                             <div class="d-flex align-items-center gap-3 ms-auto">
-                                <div class="form-check form-switch mb-0 d-flex align-items-center" title="Toggle Enable / Deactivate Rule">
-                                    <input class="form-check-input mt-0" type="checkbox" :id="'sw_' + r.id" x-model="r.enabled" style="font-size: 1.35rem; cursor: pointer;" :title="r.enabled ? 'Click to Deactivate Rule' : 'Click to Enable Rule'">
+                                <div class="form-check form-switch mb-0 ps-0" style="min-height: 0;" title="Toggle Enable / Deactivate Rule">
+                                    <input class="form-check-input m-0" type="checkbox" role="switch" :id="'sw_' + r.id" x-model="r.enabled" style="float: none; width: 2.75rem; height: 1.4rem; cursor: pointer;" :title="r.enabled ? 'Click to Deactivate Rule' : 'Click to Enable Rule'">
                                 </div>
                                 <button type="button" class="btn btn-outline-danger btn-sm" @click="removeRule(idx)" title="Delete Rule">
                                     <i class="fas fa-trash"></i>
