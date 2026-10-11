@@ -293,7 +293,11 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                 <!-- Records Table & Pagination -->
                 <template x-if="!loadingQueue && queue.length > 0">
                     <div>
-                        <div class="table-responsive">
+                        <div class="p-3 border-bottom">
+                            <label for="queueSearch" class="visually-hidden">Search queue</label>
+                            <input id="queueSearch" type="search" class="form-control" placeholder="Search queue..." x-model="queueSearch" @input="currentPage = 1">
+                        </div>
+                        <div class="table-responsive" x-show="filteredQueue().length > 0">
                             <table class="table table-hover align-middle mb-0 w-100" style="table-layout: auto;">
                                 <thead class="table-light small text-muted text-uppercase">
                                     <tr>
@@ -345,9 +349,9 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                         </div>
 
                         <!-- Pagination Footer -->
-                        <div class="d-flex align-items-center justify-content-between p-3 border-top bg-light flex-wrap gap-2">
+                        <div class="d-flex align-items-center justify-content-between p-3 border-top bg-light flex-wrap gap-2" x-show="filteredQueue().length > 0">
                             <div class="d-flex align-items-center gap-2 text-muted small flex-wrap">
-                                <span>Showing <strong class="text-dark" x-text="pageStart()"></strong> to <strong class="text-dark" x-text="pageEnd()"></strong> of <strong class="text-dark" x-text="queue.length"></strong> records</span>
+                                <span>Showing <strong class="text-dark" x-text="pageStart()"></strong> to <strong class="text-dark" x-text="pageEnd()"></strong> of <strong class="text-dark" x-text="filteredQueue().length"></strong> records</span>
                                 <span class="mx-1 text-muted">|</span>
                                 <div class="d-inline-flex align-items-center gap-1">
                                     <label for="pageSizeInput" class="mb-0 text-nowrap">Per page:</label>
@@ -371,6 +375,9 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                     <i class="fas fa-angle-double-right"></i>
                                 </button>
                             </div>
+                        </div>
+                        <div class="text-center py-4 text-muted" x-show="filteredQueue().length === 0">
+                            No queue records match your search.
                         </div>
                     </div>
                 </template>
@@ -514,7 +521,11 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                 <!-- Archive Table & Pagination -->
                 <template x-if="!loadingArchive && archive.length > 0">
                     <div>
-                        <div class="table-responsive">
+                        <div class="p-3 border-bottom">
+                            <label for="archiveSearch" class="visually-hidden">Search archive</label>
+                            <input id="archiveSearch" type="search" class="form-control" placeholder="Search archive..." x-model="archiveSearch" @input="archiveCurrentPage = 1">
+                        </div>
+                        <div class="table-responsive" x-show="filteredArchive().length > 0">
                             <table class="table table-hover align-middle mb-0 w-100" style="table-layout: auto;">
                                 <thead class="table-light small text-muted text-uppercase">
                                     <tr>
@@ -571,9 +582,9 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                         </div>
 
                         <!-- Archive Pagination Footer -->
-                        <div class="d-flex align-items-center justify-content-between p-3 border-top bg-light flex-wrap gap-2">
+                        <div class="d-flex align-items-center justify-content-between p-3 border-top bg-light flex-wrap gap-2" x-show="filteredArchive().length > 0">
                             <div class="d-flex align-items-center gap-2 text-muted small flex-wrap">
-                                <span>Showing <strong class="text-dark" x-text="archivePageStart()"></strong> to <strong class="text-dark" x-text="archivePageEnd()"></strong> of <strong class="text-dark" x-text="archive.length"></strong> records</span>
+                                <span>Showing <strong class="text-dark" x-text="archivePageStart()"></strong> to <strong class="text-dark" x-text="archivePageEnd()"></strong> of <strong class="text-dark" x-text="filteredArchive().length"></strong> records</span>
                                 <span class="mx-1 text-muted">|</span>
                                 <div class="d-inline-flex align-items-center gap-1">
                                     <label for="archivePageSizeInput" class="mb-0 text-nowrap">Per page:</label>
@@ -597,6 +608,9 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                     <i class="fas fa-angle-double-right"></i>
                                 </button>
                             </div>
+                        </div>
+                        <div class="text-center py-4 text-muted" x-show="filteredArchive().length === 0">
+                            No archive records match your search.
                         </div>
                     </div>
                 </template>
@@ -974,6 +988,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             allowServerPath: <?= json_encode($allowServerPath) ?>,
             events: <?= json_encode($events) ?>,
             queue: [],
+            queueSearch: '',
             selected: [],
             pageSize: 20,
             currentPage: 1,
@@ -988,6 +1003,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             },
 
             archive: [],
+            archiveSearch: '',
             loadingArchive: false,
             archivePageSize: 20,
             archiveCurrentPage: 1,
@@ -1055,15 +1071,27 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                 return String(item.record_id) + '_' + String(item.rule_id) + '_' + String(item.event_id || '');
             },
 
+            filteredQueue() {
+                const query = this.queueSearch.trim().toLowerCase();
+                if (!query) return this.queue;
+                return this.queue.filter(item => [
+                    item.record_id,
+                    item.recipient,
+                    item.rule_title,
+                    item.event_name || 'Default',
+                    item.is_generated ? 'Generated' : 'Due'
+                ].some(value => String(value == null ? '' : value).toLowerCase().includes(query)));
+            },
+
             totalPages() {
                 const size = Math.max(1, parseInt(this.pageSize, 10) || 20);
-                return Math.max(1, Math.ceil(this.queue.length / size));
+                return Math.max(1, Math.ceil(this.filteredQueue().length / size));
             },
 
             pagedQueue() {
                 const size = Math.max(1, parseInt(this.pageSize, 10) || 20);
                 const start = (this.currentPage - 1) * size;
-                return this.queue.slice(start, start + size);
+                return this.filteredQueue().slice(start, start + size);
             },
 
             setPage(page) {
@@ -1087,7 +1115,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             },
 
             pageStart() {
-                if (this.queue.length === 0) {
+                if (this.filteredQueue().length === 0) {
                     return 0;
                 }
                 const size = Math.max(1, parseInt(this.pageSize, 10) || 20);
@@ -1096,18 +1124,20 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 
             pageEnd() {
                 const size = Math.max(1, parseInt(this.pageSize, 10) || 20);
-                return Math.min(this.currentPage * size, this.queue.length);
+                return Math.min(this.currentPage * size, this.filteredQueue().length);
             },
 
             isAllSelected() {
-                return this.queue.length > 0 && this.selected.length === this.queue.length;
+                const visibleQueue = this.filteredQueue();
+                return visibleQueue.length > 0 && visibleQueue.every(item => this.selected.includes(this.itemKey(item)));
             },
 
             toggleSelectAll(e) {
+                const visibleKeys = this.filteredQueue().map(item => this.itemKey(item));
                 if (e.target.checked) {
-                    this.selected = this.queue.map(item => this.itemKey(item));
+                    this.selected = [...new Set([...this.selected, ...visibleKeys])];
                 } else {
-                    this.selected = [];
+                    this.selected = this.selected.filter(key => !visibleKeys.includes(key));
                 }
             },
 
@@ -1325,13 +1355,26 @@ $alpineUrl = $module->getUrl('alpine.min.js');
 
             archiveTotalPages() {
                 const size = Math.max(1, parseInt(this.archivePageSize, 10) || 20);
-                return Math.max(1, Math.ceil(this.archive.length / size));
+                return Math.max(1, Math.ceil(this.filteredArchive().length / size));
+            },
+
+            filteredArchive() {
+                const query = this.archiveSearch.trim().toLowerCase();
+                if (!query) return this.archive;
+                return this.archive.filter(item => [
+                    item.record,
+                    item.rule_title,
+                    item.version,
+                    item.formatted_date,
+                    item.username,
+                    item.filename
+                ].some(value => String(value == null ? '' : value).toLowerCase().includes(query)));
             },
 
             pagedArchive() {
                 const size = Math.max(1, parseInt(this.archivePageSize, 10) || 20);
                 const start = (this.archiveCurrentPage - 1) * size;
-                return this.archive.slice(start, start + size);
+                return this.filteredArchive().slice(start, start + size);
             },
 
             setArchivePage(page) {
@@ -1349,14 +1392,14 @@ $alpineUrl = $module->getUrl('alpine.min.js');
             },
 
             archivePageStart() {
-                if (this.archive.length === 0) return 0;
+                if (this.filteredArchive().length === 0) return 0;
                 const size = Math.max(1, parseInt(this.archivePageSize, 10) || 20);
                 return (this.archiveCurrentPage - 1) * size + 1;
             },
 
             archivePageEnd() {
                 const size = Math.max(1, parseInt(this.archivePageSize, 10) || 20);
-                return Math.min(this.archiveCurrentPage * size, this.archive.length);
+                return Math.min(this.archiveCurrentPage * size, this.filteredArchive().length);
             },
 
             async loadArchive() {
