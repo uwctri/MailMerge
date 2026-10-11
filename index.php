@@ -555,7 +555,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                                             <td>
                                                 <div class="d-flex align-items-center gap-2">
                                                     <span class="badge bg-light text-dark border" x-text="item.rule_title"></span>
-                                                    <span class="badge bg-secondary" x-text="item.version" :title="'Generation ' + item.version"></span>
+                                                    <span class="badge bg-secondary" x-text="item.version" :title="'Generation ' + item.version" x-show="item.version_count > 1"></span>
                                                 </div>
                                             </td>
                                             <td class="small text-muted" x-text="item.formatted_date"></td>

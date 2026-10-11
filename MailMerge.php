@@ -968,6 +968,7 @@ class MailMerge extends AbstractExternalModule
             $docId = (int)($r['doc_id'] ?? 0);
             $hasFile = isset($validDocs[$docId]);
             $username = !empty($r['username']) ? $r['username'] : ($userMap[$r['ui_id']] ?? (defined('USERID') ? USERID : 'System'));
+            $versionKey = ($r['record'] ?? '') . '_' . ($r['rule_id'] ?? '');
 
             $archive[] = [
                 'log_id' => $r['log_id'],
@@ -982,6 +983,7 @@ class MailMerge extends AbstractExternalModule
                 'timestamp' => $r['timestamp'],
                 'formatted_date' => date('M j, Y g:i A', strtotime($r['timestamp'])),
                 'version' => $r['version'] ?? 'v1',
+                'version_count' => $versionTotals[$versionKey] ?? 1,
             ];
         }
 
