@@ -143,6 +143,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
     .rule-card,
     .card {
         max-width: 100% !important;
+        min-width: 0 !important;
     }
 
     .rule-card .row,
@@ -184,12 +185,24 @@ $alpineUrl = $module->getUrl('alpine.min.js');
         text-overflow: ellipsis !important;
     }
 
+    #queueTable td {
+        overflow-wrap: anywhere;
+    }
+
     #center {
         min-height: calc(100vh - 120px) !important;
     }
 
     .mailmerge-main-container {
         min-height: calc(100vh - 220px);
+        min-width: 0;
+        max-width: 100%;
+        overflow-x: clip;
+    }
+
+    .mailmerge-main-container > [x-show] {
+        min-width: 0;
+        max-width: 100%;
     }
 </style>
 
@@ -292,7 +305,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
     <!-- TAB 1: QUEUE -->
     <div x-show="activeTab === 'queue'">
         <div class="card shadow">
-            <div class="card-header py-3 d-flex align-items-center justify-content-between">
+            <div class="card-header py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2">
                     <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-tasks me-2 text-primary"></i>Letters Due</h5>
                     <span class="badge bg-primary" x-text="queue.length + ' Pending'"></span>
@@ -307,7 +320,7 @@ $alpineUrl = $module->getUrl('alpine.min.js');
                 <template x-if="!loadingQueue && queue.length > 0">
                     <div>
                         <div class="table-responsive" x-show="filteredQueue().length > 0">
-                            <table class="table table-hover align-middle mb-0 w-100" style="table-layout: auto;">
+                            <table id="queueTable" class="table table-hover align-middle mb-0 w-100" style="table-layout: fixed;">
                                 <thead class="table-light small text-muted text-uppercase">
                                     <tr>
                                         <th style="width: 40px;" class="text-center">
