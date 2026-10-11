@@ -940,12 +940,13 @@ class MailMerge extends AbstractExternalModule
         $serverPath = trim((string)$this->getProjectSetting('server_output_path', $pid));
         if ($autoMode === 'server_path' && $serverPath !== '') {
             @mkdir($serverPath, 0775, true);
-            copy($outPath, rtrim($serverPath, '/\\') . DIRECTORY_SEPARATOR . $filename);
+            $safeServerPath = $this->getSafePath($filename, $serverPath);
+            copy($outPath, $safeServerPath);
         }
 
-        $tempNamedDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'mm_' . uniqid();
+        $tempNamedDir = $this->getSafePath('mm_' . uniqid(), sys_get_temp_dir());
         @mkdir($tempNamedDir, 0777, true);
-        $namedOutPath = $tempNamedDir . DIRECTORY_SEPARATOR . $filename;
+        $namedOutPath = $this->getSafePath($filename, $tempNamedDir);
         copy($outPath, $namedOutPath);
 
         $outDocId = $this->saveFile($namedOutPath, $pid);
