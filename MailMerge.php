@@ -271,12 +271,30 @@ class MailMerge extends AbstractExternalModule
         return $val;
     }
 
+    private function getProjectObject($pid): \Project
+    {
+        global $Proj;
+        return (isset($Proj) && $Proj->project_id == $pid) ? $Proj : new \Project($pid);
+    }
+
+    private function isProjectLongitudinal($pid): bool
+    {
+        return (bool)$this->getProjectObject($pid)->longitudinal;
+    }
+
+    private function getProjectEventNames($pid, $eventId = null)
+    {
+        $project = $this->getProjectObject($pid);
+        if (!$project->longitudinal) return $eventId === null ? [] : null;
+        return $project->getUniqueEventNames($eventId);
+    }
+
     public function evaluateCondition(string $cond, $pid, $recordId, $eventId = null, array $allRecordEvents = []): bool
     {
         $cleanCond = trim($cond);
         if ($cleanCond === '') return true;
 
-        $uniqueEvents = REDCap::isLongitudinal() ? REDCap::getEventNames(true, false) : [];
+        $uniqueEvents = $this->getProjectEventNames($pid);
 
         // Build list of candidate expressions to test
         $candidates = [$cleanCond];
@@ -385,7 +403,7 @@ class MailMerge extends AbstractExternalModule
         if (preg_match('/^(' . $logicFunctions . ')\s*\(.+/i', $expr)) {
             $eval = REDCap::evaluateLogic($expr, $pid, $recordId, $eventId, 1, "", "", null, true);
             if (($eval === null || $eval === false || $eval === '') && !empty($allRecordEvents)) {
-                $uniqueEvents = REDCap::isLongitudinal() ? REDCap::getEventNames(true, false) : [];
+                $uniqueEvents = $this->getProjectEventNames($pid);
                 $prefixedExpr = preg_replace_callback('/(?<!\])\[([a-zA-Z0-9_\-]+)\]/', function ($m) use ($eventId, $recordData, $allRecordEvents, $uniqueEvents) {
                     $f = $m[1];
                     if (!isset($recordData[$f]) || (string)$recordData[$f] === '') {
@@ -457,14 +475,10 @@ class MailMerge extends AbstractExternalModule
         $allData = REDCap::getData($pid, 'array', $recordIds);
         if (empty($allData)) return [];
 
-        $isLongitudinal = REDCap::isLongitudinal();
-        $eventNames = $isLongitudinal ? REDCap::getEventNames(true, false) : [];
-        $numArms = 1;
-        if ($isLongitudinal) {
-            global $Proj;
-            $p = (isset($Proj) && $Proj->project_id == $pid) ? $Proj : new \Project($pid);
-            $numArms = $p->numArms ?? count($p->events ?? [1]);
-        }
+        $project = $this->getProjectObject($pid);
+        $isLongitudinal = (bool)$project->longitudinal;
+        $eventNames = $isLongitudinal ? $project->getUniqueEventNames() : [];
+        $numArms = $isLongitudinal ? ($project->numArms ?? count($project->events ?? [1])) : 1;
         $queue = [];
         foreach ($rules as $rule) {
             $isEnabled = !isset($rule['enabled']) || ($rule['enabled'] === true || $rule['enabled'] === 'true' || $rule['enabled'] === 1 || $rule['enabled'] === '1');
@@ -652,7 +666,7 @@ class MailMerge extends AbstractExternalModule
 
         $resolved = 0;
         $username = defined('USERID') ? USERID : 'System';
-        $isLongitudinal = REDCap::isLongitudinal();
+        $isLongitudinal = $this->isProjectLongitudinal($pid);
 
         foreach ($items as $item) {
             $recordId = $item['record_id'] ?? null;
@@ -676,7 +690,7 @@ class MailMerge extends AbstractExternalModule
                     $recData = REDCap::getData($pid, 'array', $recordId)[$recordId] ?? [];
                     $targetEvId = array_key_first($recData);
                 }
-                $eventName = ($isLongitudinal && $targetEvId) ? REDCap::getEventNames(true, false, $targetEvId) : null;
+                $eventName = ($isLongitudinal && $targetEvId) ? $this->getProjectEventNames($pid, $targetEvId) : null;
                 $saveData = [
                     'record_id' => $recordId,
                     $targetField => $flagValue,
@@ -715,7 +729,7 @@ class MailMerge extends AbstractExternalModule
         if (!empty($rule['printed_flag_field'])) $fieldsToReset[] = trim($rule['printed_flag_field']);
         $fieldsToReset = array_unique(array_filter($fieldsToReset));
 
-        $isLongitudinal = REDCap::isLongitudinal();
+        $isLongitudinal = $this->isProjectLongitudinal($pid);
 
         if (!empty($fieldsToReset)) {
             $recData = REDCap::getData($pid, 'array', $recordId)[$recordId] ?? [];
@@ -726,7 +740,7 @@ class MailMerge extends AbstractExternalModule
                 foreach ($recData as $evId => $evFields) {
                     // Event-specific rules only touch their own event
                     if ($eventId && $evId != $eventId) continue;
-                    $evUniqueName = REDCap::getEventNames(true, false, $evId);
+                    $evUniqueName = $this->getProjectEventNames($pid, $evId);
                     if (!$evUniqueName) continue;
                     $row = ['record_id' => $recordId, 'redcap_event_name' => $evUniqueName];
                     $hasField = false;
@@ -744,7 +758,7 @@ class MailMerge extends AbstractExternalModule
 
                 $targetEvId = $eventId ?: array_key_first($recData);
                 if ($targetEvId && !isset($eventsModified[$targetEvId])) {
-                    $evUniqueName = REDCap::getEventNames(true, false, $targetEvId);
+                    $evUniqueName = $this->getProjectEventNames($pid, $targetEvId);
                     if ($evUniqueName) {
                         $row = ['record_id' => $recordId, 'redcap_event_name' => $evUniqueName];
                         foreach ($fieldsToReset as $f) {
@@ -969,9 +983,9 @@ class MailMerge extends AbstractExternalModule
             else if (str_starts_with($valType, 'datetime')) $flagValue = date('Y-m-d H:i');
             else if (str_starts_with($valType, 'date')) $flagValue = date('Y-m-d');
 
-            $isLongitudinal = REDCap::isLongitudinal();
+            $isLongitudinal = $this->isProjectLongitudinal($pid);
             $targetEvId = $eventId ?: $primaryEvent;
-            $evName = ($isLongitudinal && $targetEvId) ? REDCap::getEventNames(true, false, $targetEvId) : null;
+            $evName = ($isLongitudinal && $targetEvId) ? $this->getProjectEventNames($pid, $targetEvId) : null;
             $saveRow = [
                 'record_id' => $recordId,
                 $flagField => $flagValue,
