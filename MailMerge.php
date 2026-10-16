@@ -818,11 +818,44 @@ class MailMerge extends AbstractExternalModule
         $rows = [];
         $docIds = [];
         $uiIds = [];
+        $recordIds = [];
 
         while ($r = $q->fetch_assoc()) {
             if (!empty($r['doc_id'])) $docIds[] = (int)$r['doc_id'];
             if (!empty($r['ui_id'])) $uiIds[] = (int)$r['ui_id'];
+            if (isset($r['record']) && $r['record'] !== '') $recordIds[] = (string)$r['record'];
             $rows[] = $r;
+        }
+
+        $rulesById = [];
+        foreach ($this->getLetterRules($pid) as $rule) {
+            $rulesById[(string)$rule['id']] = $rule;
+        }
+        $currentData = !empty($recordIds)
+            ? REDCap::getData($pid, 'array', array_values(array_unique($recordIds)))
+            : [];
+        $triggerStatuses = [];
+        foreach ($rows as $r) {
+            $recordId = (string)($r['record'] ?? '');
+            $ruleId = (string)($r['rule_id'] ?? '');
+            if (isset($triggerStatuses[$ruleId][$recordId])) continue;
+
+            $rule = $rulesById[$ruleId] ?? null;
+            $recordEvents = $currentData[$recordId] ?? null;
+            if ($rule === null || empty($rule['enabled']) || !is_array($recordEvents) || empty($recordEvents)) {
+                $triggerStatuses[$ruleId][$recordId] = 'unknown';
+                continue;
+            }
+
+            $condition = trim($rule['condition'] ?? '');
+            $eventId = $rule['event_id'] ?: null;
+            $triggerStatuses[$ruleId][$recordId] = $this->evaluateCondition(
+                $condition,
+                $pid,
+                $recordId,
+                $eventId,
+                $recordEvents
+            ) ? 'met' : 'not_met';
         }
 
         $userMap = [];
@@ -874,6 +907,7 @@ class MailMerge extends AbstractExternalModule
                 'formatted_date' => date('M j, Y g:i A', strtotime($r['timestamp'])),
                 'version' => $r['version'] ?? 'v1',
                 'version_count' => $versionTotals[$versionKey] ?? 1,
+                'trigger_status' => $triggerStatuses[(string)($r['rule_id'] ?? '')][(string)($r['record'] ?? '')] ?? 'unknown',
             ];
         }
 

@@ -425,14 +425,23 @@ document.addEventListener('alpine:init', () => Alpine.data('mailMergeApp', () =>
     filteredArchive() {
         const query = this.archiveSearch.trim().toLowerCase();
         if (!query) return this.archive;
-        return this.archive.filter(item => [
-            item.record,
-            item.rule_title,
-            item.version,
-            item.formatted_date,
-            item.username,
-            item.filename
-        ].some(value => String(value == null ? '' : value).toLowerCase().includes(query)));
+        return this.archive.filter(item => {
+            const triggerStatus = {
+                met: 'Trigger met',
+                not_met: 'Trigger no longer met',
+                unknown: 'Trigger status unavailable'
+            }[item.trigger_status] || 'Trigger status unavailable';
+            return [
+                item.record,
+                item.rule_title,
+                item.version,
+                item.formatted_date,
+                item.username,
+                item.filename,
+                'Generated',
+                triggerStatus
+            ].some(value => String(value == null ? '' : value).toLowerCase().includes(query));
+        });
     },
 
     pagedArchive() {
