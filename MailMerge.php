@@ -826,6 +826,12 @@ class MailMerge extends AbstractExternalModule
             if (isset($r['record']) && $r['record'] !== '') $recordIds[] = (string)$r['record'];
             $rows[] = $r;
         }
+        usort($rows, static function ($a, $b) {
+            $dateCompare = strcmp((string)($b['timestamp'] ?? ''), (string)($a['timestamp'] ?? ''));
+            return $dateCompare !== 0
+                ? $dateCompare
+                : ((int)($b['log_id'] ?? 0) <=> (int)($a['log_id'] ?? 0));
+        });
 
         $rulesById = [];
         foreach ($this->getLetterRules($pid) as $rule) {
@@ -896,6 +902,7 @@ class MailMerge extends AbstractExternalModule
             $archive[] = [
                 'log_id' => $r['log_id'],
                 'record' => $r['record'],
+                'record_url' => APP_PATH_WEBROOT . 'DataEntry/record_home.php?pid=' . rawurlencode((string)$pid) . '&id=' . rawurlencode((string)$r['record']),
                 'rule_id' => $r['rule_id'],
                 'rule_title' => $r['rule_title'] ?: 'Letter',
                 'filename' => $r['filename'] ?: "letter_{$r['record']}.docx",

@@ -591,7 +591,9 @@ $indexJsUrl = $module->getUrl('index.js');
                                 <tbody>
                                     <template x-for="item in pagedArchive()" :key="item.log_id">
                                         <tr>
-                                            <td class="fw-bold text-primary" x-text="item.record"></td>
+                                            <td class="fw-bold">
+                                                <a class="text-primary text-decoration-none" :href="item.record_url" x-text="item.record"></a>
+                                            </td>
                                             <td>
                                                 <div class="d-flex align-items-center gap-2">
                                                     <span class="badge bg-light text-dark border" x-text="item.rule_title"></span>
