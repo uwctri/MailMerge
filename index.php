@@ -793,6 +793,9 @@ $indexJsUrl = $module->getUrl('index.js');
                                 <div class="form-check form-switch mb-0 ps-0" style="min-height: 0;" title="Toggle Enable / Deactivate Rule">
                                     <input class="form-check-input m-0" type="checkbox" role="switch" :id="'sw_' + r.id" x-model="r.enabled" style="float: none; width: 2.75rem; height: 1.4rem; cursor: pointer;" :title="r.enabled ? 'Click to Deactivate Rule' : 'Click to Enable Rule'">
                                 </div>
+                                <button type="button" class="btn btn-link btn-sm p-1 text-primary" @click="duplicateRule(r)" title="Duplicate Rule" aria-label="Duplicate Rule">
+                                    <i class="fas fa-copy" aria-hidden="true"></i>
+                                </button>
                                 <button type="button" class="btn btn-outline-danger btn-sm" @click="removeRule(idx)" title="Delete Rule">
                                     <i class="fas fa-trash"></i>
                                 </button>

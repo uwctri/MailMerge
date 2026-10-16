@@ -631,7 +631,7 @@ document.addEventListener('alpine:init', () => Alpine.data('mailMergeApp', () =>
     },
 
     addRule() {
-        const id = 'rule_' + Date.now();
+        const id = this.createRuleId();
         this.rules.push({
             id: id,
             title: 'New Letter Rule',
@@ -644,6 +644,22 @@ document.addEventListener('alpine:init', () => Alpine.data('mailMergeApp', () =>
             condition: '',
             mappings: []
         });
+    },
+
+    createRuleId() {
+        let id;
+        do {
+            id = 'rule_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+        } while (this.rules.some(rule => String(rule.id) === id));
+        return id;
+    },
+
+    duplicateRule(rule) {
+        const copy = JSON.parse(JSON.stringify(rule));
+        copy.id = this.createRuleId();
+        copy.title = `${rule.title || 'New Letter Rule'} (Copy)`;
+        const index = this.rules.indexOf(rule);
+        this.rules.splice(index + 1, 0, copy);
     },
 
     removeRule(idx) {
