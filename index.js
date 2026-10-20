@@ -674,7 +674,7 @@ document.addEventListener('alpine:init', () => Alpine.data('mailMergeApp', () =>
             if (!existingTags.includes(tag)) {
                 rule.mappings.push({
                     tag: tag,
-                    source: '[' + tag.toLowerCase() + ']'
+                    source: tag.startsWith('[') ? tag : '[' + tag.toLowerCase() + ']'
                 });
             }
         });

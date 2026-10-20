@@ -242,10 +242,12 @@ class MailMerge extends AbstractExternalModule
         return ['success' => true];
     }
 
-    public function formatValue(string $val, string $format): string
+    public function formatValue(string $val, string $format, ?string $fieldName = null, ?int $pid = null): string
     {
         $fmt = trim($format);
         $lowerFmt = strtolower($fmt);
+
+        if ($lowerFmt === 'raw' || $lowerFmt === 'value') return $val;
 
         if ($lowerFmt === 'upper' || $lowerFmt === 'uppercase') return mb_strtoupper($val, 'UTF-8');
         if ($lowerFmt === 'lower' || $lowerFmt === 'lowercase') return mb_strtolower($val, 'UTF-8');
@@ -259,19 +261,112 @@ class MailMerge extends AbstractExternalModule
         }
         if ($lowerFmt === 'number' || $lowerFmt === 'integer' || $lowerFmt === 'int') return number_format((float)$val, 0);
 
-        if ($lowerFmt === '24' || $lowerFmt === 'time:24') $fmt = 'H:i';
-        else if ($lowerFmt === '12' || $lowerFmt === 'time:12') $fmt = 'g:i A';
-        else if ($lowerFmt === 'm/d/y') $fmt = 'm/d/Y';
-        else if ($lowerFmt === 'y-m-d') $fmt = 'Y-m-d';
-        else if ($lowerFmt === 'iso') $fmt = 'Y-m-d H:i:s';
+        if ($lowerFmt === 'label' && $fieldName !== null && $pid !== null) {
+            $dict = REDCap::getDataDictionary($pid, 'array', false, [$fieldName]);
+            $choices = $dict[$fieldName]['select_choices_or_calculations'] ?? '';
+            if ($choices !== '') {
+                foreach (explode('|', $choices) as $choice) {
+                    $parts = explode(',', $choice, 2);
+                    if (count($parts) === 2 && trim($parts[0]) === trim($val)) {
+                        return trim($parts[1]);
+                    }
+                }
+            }
+        }
 
-        $ts = strtotime($val);
-        if ($ts !== false) return date($fmt, $ts);
+        $phpFmt = self::convertDateFormatToPhp($fmt);
+        $ts = self::parseDateToTimestamp($val);
+        if ($ts !== null) {
+            return date($phpFmt, $ts);
+        }
 
         return $val;
     }
 
-    private function getProjectObject($pid): \Project
+    public static function parseDateToTimestamp(string $val): ?int
+    {
+        $val = trim($val);
+        if ($val === '') return null;
+
+        $ts = strtotime($val);
+        if ($ts !== false) return $ts;
+
+        // Check for US date format with hyphens MM-DD-YYYY or MM-DD-YYYY HH:MM...
+        if (preg_match('/^(\d{1,2})-(\d{1,2})-(\d{4})(.*)$/', $val, $m)) {
+            $ts = strtotime($m[1] . '/' . $m[2] . '/' . $m[3] . $m[4]);
+            if ($ts !== false) return $ts;
+        }
+
+        $commonFormats = [
+            'Y-m-d H:i:s', 'Y-m-d H:i', 'Y-m-d',
+            'm/d/Y H:i:s', 'm/d/Y H:i', 'm/d/Y',
+            'm-d-Y H:i:s', 'm-d-Y H:i', 'm-d-Y',
+            'd/m/Y H:i:s', 'd/m/Y H:i', 'd/m/Y',
+            'd-m-Y H:i:s', 'd-m-Y H:i', 'd-m-Y',
+            'H:i:s', 'H:i', 'g:i A', 'g:i:s A', 'g:i a', 'g:i:s a',
+        ];
+        foreach ($commonFormats as $f) {
+            $dt = \DateTime::createFromFormat($f, $val);
+            if ($dt !== false) {
+                return $dt->getTimestamp();
+            }
+        }
+
+        return null;
+    }
+
+    public static function convertDateFormatToPhp(string $fmt): string
+    {
+        $fmt = trim($fmt);
+        $lowerFmt = strtolower($fmt);
+
+        // Predefined aliases
+        if ($lowerFmt === '24' || $lowerFmt === 'time:24') return 'H:i';
+        if ($lowerFmt === '12' || $lowerFmt === 'time:12' || $lowerFmt === 'time') return 'g:i A';
+        if ($lowerFmt === 'm/d/y' || $lowerFmt === 'usa' || $lowerFmt === 'date') return 'm/d/Y';
+        if ($lowerFmt === 'y-m-d') return 'Y-m-d';
+        if ($lowerFmt === 'iso') return 'Y-m-d H:i:s';
+        if ($lowerFmt === 'datetime') return 'm/d/Y g:i A';
+        if ($lowerFmt === 'year') return 'Y';
+        if ($lowerFmt === 'month') return 'm';
+        if ($lowerFmt === 'day') return 'd';
+
+        // strftime formats with %
+        if (str_contains($fmt, '%')) {
+            $map = [
+                '%A' => 'l', '%a' => 'D', '%B' => 'F', '%b' => 'M', '%h' => 'M',
+                '%d' => 'd', '%e' => 'j', '%m' => 'm', '%Y' => 'Y', '%y' => 'y',
+                '%H' => 'H', '%k' => 'G', '%I' => 'g', '%l' => 'g', '%M' => 'i',
+                '%S' => 's', '%p' => 'A', '%P' => 'a'
+            ];
+            return strtr($fmt, $map);
+        }
+
+        // Moment/ISO like tokens: YYYY, MMMM, MMM, DD, HH, etc.
+        if (preg_match('/\b(YYYY|MMMM|MMM|DD|HH|hh|mm|ss)\b/', $fmt)) {
+            $map = [
+                'YYYY' => 'Y', 'YY' => 'y', 'MMMM' => 'F', 'MMM' => 'M', 'MM' => 'm',
+                'DD' => 'd', 'HH' => 'H', 'hh' => 'g', 'mm' => 'i', 'ss' => 's'
+            ];
+            $fmt = strtr($fmt, $map);
+        }
+
+        // Leading 'A' or 'a' followed by comma/space/boundary indicates full or short weekday (e.g. "A, m/d/Y" -> "l, m/d/Y")
+        $fmt = preg_replace('/^A([,\s]|$)/', 'l$1', $fmt);
+        $fmt = preg_replace('/^a([,\s]|$)/', 'D$1', $fmt);
+
+        // 12-hour clock time tokens (e.g. I:M, I:i, H:M)
+        $fmt = preg_replace('/(^|[^\w])I:M/i', '$1g:i', $fmt);
+        $fmt = preg_replace('/(^|[^\w])I:i/i', '$1g:i', $fmt);
+        $fmt = preg_replace('/(^|[^\w])H:M/i', '$1H:i', $fmt);
+
+        // AM/PM marker (e.g. :Mp, :i:Sp, :ip, :i p, :iP, :i P)
+        $fmt = preg_replace('/(:[iM](?::[sS])?)\s*p\b/i', '$1 A', $fmt);
+
+        return $fmt;
+    }
+
+    protected function getProjectObject($pid): \Project
     {
         global $Proj;
         return (isset($Proj) && $Proj->project_id == $pid) ? $Proj : new \Project($pid);
@@ -282,7 +377,7 @@ class MailMerge extends AbstractExternalModule
         return (bool)$this->getProjectObject($pid)->longitudinal;
     }
 
-    private function getProjectEventNames($pid, $eventId = null)
+    protected function getProjectEventNames($pid, $eventId = null)
     {
         $project = $this->getProjectObject($pid);
         if (!$project->longitudinal) return $eventId === null ? [] : null;
@@ -424,30 +519,43 @@ class MailMerge extends AbstractExternalModule
             if ($eval !== null && $eval !== false) return (string)$eval;
         }
 
-        // Support [field:format] and [field]:format syntax within expressions
-        if (str_contains($clean, '[')) {
-            $clean = preg_replace_callback('/\[([a-zA-Z0-9_\-]+)(?::([^\]]+))?\](?::([a-zA-Z0-9_\/:\s\-]+))?/', function ($m) use ($recordId, $eventId, $pid, $recordData, $allRecordEvents) {
-                $fName = $m[1];
-                $format = !empty($m[2]) ? $m[2] : (!empty($m[3]) ? $m[3] : '');
-                $pipedVal = Piping::replaceVariablesInLabel('[' . $fName . ']', $recordId, $eventId, 1, [], false, $pid, false);
-                $rawVal = ($pipedVal !== '' && $pipedVal !== false) ? $pipedVal : ($recordData[$fName] ?? '');
+        $uniqueEvents = $this->getProjectEventNames($pid) ?: [];
+        $eventIdsByName = array_flip($uniqueEvents);
 
-                if ((string)$rawVal === '' && !empty($allRecordEvents)) {
-                    foreach ($allRecordEvents as $evId => $evRow) {
-                        if ($evId == $eventId) continue;
-                        if (isset($evRow[$fName]) && !is_array($evRow[$fName]) && (string)$evRow[$fName] !== '') {
-                            $rawVal = (string)$evRow[$fName];
-                            break;
-                        }
+        // Support [event][field:format], [event][field], [field:format], and [field] syntax within expressions
+        if (str_contains($clean, '[')) {
+            $clean = preg_replace_callback('/(?:\[([a-zA-Z0-9_\-]+)\])?\[([a-zA-Z0-9_\-]+)(?::([^\]]+))?\](?::([a-zA-Z0-9_\/:\s\-]+))?/', function ($m) use ($recordId, $eventId, $pid, $recordData, $allRecordEvents, $eventIdsByName) {
+                $eventPart = !empty($m[1]) ? trim($m[1]) : '';
+                $fName = trim($m[2]);
+                $format = !empty($m[3]) ? trim($m[3]) : (!empty($m[4]) ? trim($m[4]) : '');
+
+                $targetEventId = null;
+                if ($eventPart !== '') {
+                    if (isset($eventIdsByName[$eventPart])) {
+                        $targetEventId = $eventIdsByName[$eventPart];
+                    } else {
+                        $proj = $this->getProjectObject($pid);
+                        $targetEventId = $proj->getEventIdUsingUniqueEventName($eventPart);
                     }
                 }
 
-                if ($format !== '') return $this->formatValue((string)$rawVal, $format);
-                return (string)$rawVal;
+                // If eventPart was specified but is NOT an event name (e.g. adjacent fields [f1][f2]):
+                if ($eventPart !== '' && !$targetEventId) {
+                    $val1 = $this->resolveFieldValue($eventPart, '', $recordId, $eventId, $pid, $recordData, $allRecordEvents);
+                    $val2 = $this->resolveFieldValue($fName, $format, $recordId, $eventId, $pid, $recordData, $allRecordEvents);
+                    return $val1 . $val2;
+                }
+
+                $activeEvId = $targetEventId ?: $eventId;
+                return $this->resolveFieldValue($fName, $format, $recordId, $activeEvId, $pid, $recordData, $allRecordEvents, $eventPart);
             }, $clean);
 
-            $piped = Piping::replaceVariablesInLabel($clean, $recordId, $eventId, 1, [], false, $pid, false);
-            if ($piped !== '' && $piped !== false) return (string)$piped;
+            if (str_contains($clean, '[')) {
+                $piped = Piping::replaceVariablesInLabel($clean, $recordId, $eventId, 1, [], false, $pid, false);
+                if ($piped !== '' && $piped !== false && $piped !== $clean) return (string)$piped;
+            } else {
+                return $clean;
+            }
         }
 
         if (isset($recordData[$clean]) && !is_array($recordData[$clean]))
@@ -463,6 +571,58 @@ class MailMerge extends AbstractExternalModule
         }
 
         return $clean;
+    }
+
+    public function resolveFieldValue(string $fName, string $format, $recordId, $targetEventId, $pid, array $recordData, array $allRecordEvents, string $eventPart = ''): string
+    {
+        $rawVal = '';
+
+        if ($targetEventId) {
+            if ($eventPart !== '') {
+                $pipeVar = '[' . $eventPart . '][' . $fName . ']';
+                $piped = Piping::replaceVariablesInLabel($pipeVar, $recordId, $targetEventId, 1, [], false, $pid, false);
+                if ($piped !== '' && $piped !== false && $piped !== $pipeVar) {
+                    $rawVal = (string)$piped;
+                }
+            }
+            if ((string)$rawVal === '') {
+                $pipeVar = '[' . $fName . ']';
+                $piped = Piping::replaceVariablesInLabel($pipeVar, $recordId, $targetEventId, 1, [], false, $pid, false);
+                if ($piped !== '' && $piped !== false && $piped !== $pipeVar) {
+                    $rawVal = (string)$piped;
+                }
+            }
+            if ((string)$rawVal === '' && isset($allRecordEvents[$targetEventId][$fName])) {
+                $v = $allRecordEvents[$targetEventId][$fName];
+                if (!is_array($v) && (string)$v !== '') {
+                    $rawVal = (string)$v;
+                }
+            }
+        } else {
+            $pipeVar = '[' . $fName . ']';
+            $piped = Piping::replaceVariablesInLabel($pipeVar, $recordId, $targetEventId, 1, [], false, $pid, false);
+            if ($piped !== '' && $piped !== false && $piped !== $pipeVar) {
+                $rawVal = (string)$piped;
+            }
+            if ((string)$rawVal === '' && isset($recordData[$fName]) && !is_array($recordData[$fName])) {
+                $rawVal = (string)$recordData[$fName];
+            }
+            if ((string)$rawVal === '' && !empty($allRecordEvents)) {
+                foreach ($allRecordEvents as $evId => $evRow) {
+                    if ($evId == $targetEventId) continue;
+                    if (isset($evRow[$fName]) && !is_array($evRow[$fName]) && (string)$evRow[$fName] !== '') {
+                        $rawVal = (string)$evRow[$fName];
+                        break;
+                    }
+                }
+            }
+        }
+
+        if ($format !== '') {
+            return $this->formatValue((string)$rawVal, $format, $fName, $pid);
+        }
+
+        return (string)$rawVal;
     }
 
     public function evaluateQueue($pid, ?array $recordIds = null): array
@@ -957,6 +1117,20 @@ class MailMerge extends AbstractExternalModule
             'today_date' => date('F j, Y'),
         ];
 
+        $uniqueEvents = $this->getProjectEventNames($pid) ?: [];
+        if (!empty($uniqueEvents)) {
+            foreach ($allRecordEvents as $evId => $evRow) {
+                $uName = $uniqueEvents[$evId] ?? '';
+                if ($uName === '') continue;
+                foreach ($evRow as $f => $v) {
+                    if (!is_array($v) && (string)$v !== '') {
+                        $mergePayload["{$uName}][{$f}"] = (string)$v;
+                        $mergePayload["[{$uName}][{$f}]"] = (string)$v;
+                    }
+                }
+            }
+        }
+
         foreach ($allRecordEvents as $evId => $evRow) {
             if ($evId == $primaryEvent) continue;
             foreach ($evRow as $f => $v) {
@@ -980,7 +1154,10 @@ class MailMerge extends AbstractExternalModule
         }
 
         $outPath = tempnam(sys_get_temp_dir(), 'ltr_') . '.docx';
-        $ok = DocxEngine::merge($tmplPath, $mergePayload, $outPath);
+        $resolver = function (string $tag) use ($recordId, $primaryEvent, $pid, $recordData, $allRecordEvents) {
+            return $this->resolveMappingSource($tag, $recordId, $primaryEvent, $pid, $recordData, $allRecordEvents);
+        };
+        $ok = DocxEngine::merge($tmplPath, $mergePayload, $outPath, $resolver);
         @unlink($tmplPath);
 
         if (!$ok || !file_exists($outPath))
