@@ -885,7 +885,6 @@ $indexJsUrl = $module->getUrl('index.js');
                                     <h6 class="mb-0 fw-bold text-dark text-uppercase small" style="letter-spacing: 0.5px;">
                                         <i class="fas fa-tags text-primary me-1"></i> Merge Field Mappings
                                     </h6>
-                                    <span class="badge bg-light text-muted border">Tags</span>
                                 </div>
                                 <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2 small" @click="addMapping(r)">
                                     <i class="fas fa-plus me-1"></i> Add Tag
@@ -966,8 +965,9 @@ $indexJsUrl = $module->getUrl('index.js');
                                     <thead class="table-light small text-muted">
                                         <tr>
                                             <th style="width: 40%;">Word Template Tag</th>
+                                            <th style="width: 48px;" class="text-center"></th>
                                             <th style="width: 50%;">REDCap Field / Expression</th>
-                                            <th style="width: 10%;" class="text-end"></th>
+                                            <th style="width: 48px;" class="text-end"></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -975,6 +975,9 @@ $indexJsUrl = $module->getUrl('index.js');
                                             <tr>
                                                 <td>
                                                     <input type="text" class="form-control form-control-sm font-monospace w-100" x-model="m.tag" placeholder="Tag Name">
+                                                </td>
+                                                <td class="text-center text-muted px-2">
+                                                    <i class="fas fa-arrow-right"></i>
                                                 </td>
                                                 <td>
                                                     <input type="text" class="form-control form-control-sm font-monospace w-100" list="fieldsList" x-model="m.source" placeholder="e.g. [first_name] or [appt_date]">
