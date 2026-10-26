@@ -787,12 +787,6 @@ $indexJsUrl = $module->getUrl('index.js');
                     <div class="card-header py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
                         <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
                             <i class="fas fa-columns me-2 text-primary"></i>Queue Table Columns
-                            <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
-                                <i class="fas fa-info-circle text-muted cursor-pointer" style="font-size: 0.85rem;"></i>
-                                <div x-show="tip" x-transition class="hover-tip">
-                                    Add custom participant data columns to display on the Queue table between the Event and Status columns.
-                                </div>
-                            </span>
                         </h5>
                         <button type="button" class="btn btn-sm btn-outline-primary fw-bold d-inline-flex align-items-center" @click="addQueueColumn()">
                             <i class="fas fa-plus me-1"></i> Add Column
@@ -802,29 +796,29 @@ $indexJsUrl = $module->getUrl('index.js');
                         <p class="text-muted small mb-3">
                             Configure additional participant columns (e.g. phone number, appointment date, appointment status) to appear in the Queue table.
                         </p>
-                        <div class="table-responsive" x-show="settings.queue_columns && settings.queue_columns.length > 0">
+                        <div class="w-100 overflow-hidden" x-show="settings.queue_columns && settings.queue_columns.length > 0">
                             <table class="table table-sm align-middle mb-0 w-100" style="table-layout: fixed;">
                                 <thead class="table-light small text-muted">
                                     <tr>
-                                        <th style="width: 44%;">Column Header</th>
-                                        <th style="width: 44%;">REDCap Field / Expression</th>
-                                        <th style="width: 12%;" class="text-end"></th>
+                                        <th>Column Header</th>
+                                        <th>REDCap Field / Expression</th>
+                                        <th style="width: 72px;" class="text-end px-1"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <template x-for="(col, colIdx) in settings.queue_columns" :key="colIdx">
                                         <tr>
-                                            <td>
-                                                <input type="text" class="form-control form-control-sm" x-model="col.label" placeholder="Header (e.g. Phone, Appt)">
+                                            <td class="pe-1">
+                                                <input type="text" class="form-control form-control-sm w-100" style="min-width: 0;" x-model="col.label" placeholder="Header (e.g. Phone, Appt)">
                                             </td>
-                                            <td>
-                                                <input type="text" class="form-control form-control-sm font-monospace" list="fieldsList" x-model="col.source" placeholder="e.g. [phone] or [appt_date]">
+                                            <td class="ps-1 pe-1">
+                                                <input type="text" class="form-control form-control-sm font-monospace w-100" style="min-width: 0;" list="fieldsList" x-model="col.source" placeholder="e.g. [phone] or [appt_date]">
                                             </td>
-                                            <td class="text-end text-nowrap">
-                                                <button type="button" class="btn btn-link btn-sm p-0 text-secondary me-1" :disabled="colIdx === 0" @click="moveQueueColumn(colIdx, -1)" title="Move Up">
+                                            <td class="text-end text-nowrap ps-1 pe-0">
+                                                <button type="button" class="btn btn-link btn-sm p-0 text-secondary" :disabled="colIdx === 0" @click="moveQueueColumn(colIdx, -1)" title="Move Up" style="text-decoration: none;">
                                                     <i class="fas fa-arrow-up"></i>
                                                 </button>
-                                                <button type="button" class="btn btn-link btn-sm p-0 text-secondary me-2" :disabled="colIdx === settings.queue_columns.length - 1" @click="moveQueueColumn(colIdx, 1)" title="Move Down">
+                                                <button type="button" class="btn btn-link btn-sm p-0 text-secondary mx-1" :disabled="colIdx === settings.queue_columns.length - 1" @click="moveQueueColumn(colIdx, 1)" title="Move Down" style="text-decoration: none;">
                                                     <i class="fas fa-arrow-down"></i>
                                                 </button>
                                                 <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" @click="settings.queue_columns.splice(colIdx, 1)" title="Delete Column">
