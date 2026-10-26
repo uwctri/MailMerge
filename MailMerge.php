@@ -129,11 +129,15 @@ class MailMerge extends AbstractExternalModule
 
     public function getProjectConfig($pid): array
     {
+        $queueColumns = $this->getProjectSetting('queue_custom_columns', $pid);
+        if (!is_array($queueColumns)) $queueColumns = [];
+
         return [
             'automation_mode' => $this->getProjectSetting('automation_mode', $pid) ?: 'queued',
             'server_output_path' => $this->getProjectSetting('server_output_path', $pid) ?: '',
             'file_repo_templates_folder' => $this->getProjectSetting('file_repo_templates_folder', $pid) ?: 'MailMerge Templates',
             'file_repo_letters_folder' => $this->getProjectSetting('file_repo_letters_folder', $pid) ?: 'MailMerge Letters/{date}',
+            'queue_columns' => $queueColumns,
         ];
     }
 
@@ -143,6 +147,22 @@ class MailMerge extends AbstractExternalModule
         $this->setProjectSetting('server_output_path', $cfg['server_output_path'] ?? '', $pid);
         $this->setProjectSetting('file_repo_templates_folder', $cfg['file_repo_templates_folder'] ?? 'MailMerge Templates', $pid);
         $this->setProjectSetting('file_repo_letters_folder', $cfg['file_repo_letters_folder'] ?? 'MailMerge Letters/{date}', $pid);
+
+        $queueColumns = [];
+        if (isset($cfg['queue_columns']) && is_array($cfg['queue_columns'])) {
+            foreach ($cfg['queue_columns'] as $col) {
+                $label = trim((string)($col['label'] ?? ''));
+                $source = trim((string)($col['source'] ?? ''));
+                if ($label !== '' || $source !== '') {
+                    $queueColumns[] = [
+                        'label' => $label !== '' ? $label : $source,
+                        'source' => $source
+                    ];
+                }
+            }
+        }
+        $this->setProjectSetting('queue_custom_columns', $queueColumns, $pid);
+
         return ['success' => true];
     }
 
@@ -647,6 +667,8 @@ class MailMerge extends AbstractExternalModule
         $isLongitudinal = (bool)$project->longitudinal;
         $eventNames = $isLongitudinal ? $project->getUniqueEventNames() : [];
         $numArms = $isLongitudinal ? ($project->numArms ?? count($project->events ?? [1])) : 1;
+        $queueColumns = $this->getProjectSetting('queue_custom_columns', $pid);
+        if (!is_array($queueColumns)) $queueColumns = [];
         $queue = [];
         foreach ($rules as $rule) {
             $isEnabled = !isset($rule['enabled']) || ($rule['enabled'] === true || $rule['enabled'] === 'true' || $rule['enabled'] === 1 || $rule['enabled'] === '1');
@@ -757,6 +779,17 @@ class MailMerge extends AbstractExternalModule
                 }
                 $recipient = $recipientName ?: $recordId;
 
+                $customData = [];
+                foreach ($queueColumns as $col) {
+                    $src = trim($col['source'] ?? '');
+                    if ($src === '') {
+                        $customData[] = '';
+                    } else {
+                        $srcExpr = (!str_contains($src, '[') && preg_match('/^[a-zA-Z0-9_\-]+$/', $src)) ? "[{$src}]" : $src;
+                        $customData[] = $this->resolveMappingSource($srcExpr, $recordId, $primaryEvent, $pid, $row, $recordEvents);
+                    }
+                }
+
                 $queue[] = [
                     'rule_id' => $rule['id'],
                     'rule_title' => $rule['title'],
@@ -766,6 +799,7 @@ class MailMerge extends AbstractExternalModule
                     'event_name' => $eventName,
                     'recipient' => $recipient,
                     'is_generated' => $isGenerated,
+                    'custom_data' => $customData,
                 ];
             }
         }

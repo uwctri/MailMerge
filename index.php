@@ -204,7 +204,11 @@ $indexJsUrl = $module->getUrl('index.js');
         overflow-x: hidden !important;
     }
 
-    .queue-table-wrapper,
+    .queue-table-wrapper {
+        max-width: 100%;
+        overflow-x: auto !important;
+    }
+
     .rule-mapping-table-wrapper {
         max-width: 100%;
         overflow-x: hidden !important;
@@ -356,6 +360,9 @@ $indexJsUrl = $module->getUrl('index.js');
                                         <th>Recipient</th>
                                         <th>Letter Title</th>
                                         <th>Event</th>
+                                        <template x-for="(col, colIdx) in (settings.queue_columns || [])" :key="'th_' + colIdx">
+                                            <th x-text="col.label || col.source || ('Column ' + (colIdx + 1))"></th>
+                                        </template>
                                         <th>Status</th>
                                         <th class="text-end" style="width: 105px;"></th>
                                     </tr>
@@ -372,6 +379,9 @@ $indexJsUrl = $module->getUrl('index.js');
                                                 <span class="badge bg-light text-dark border px-2 py-1" style="padding: 0.35rem 0.55rem; font-size: 0.8rem;" x-text="item.rule_title"></span>
                                             </td>
                                             <td class="small text-muted" x-text="item.event_name || 'Default'"></td>
+                                            <template x-for="(col, colIdx) in (settings.queue_columns || [])" :key="'td_' + colIdx">
+                                                <td class="small" x-text="(item.custom_data && item.custom_data[colIdx] !== undefined) ? item.custom_data[colIdx] : ''"></td>
+                                            </template>
                                             <td>
                                                 <span class="badge bg-info text-dark px-2 py-1" style="padding: 0.35rem 0.55rem; font-size: 0.8rem;" x-show="item.is_generated">
                                                     <i class="fas fa-file-alt me-1"></i>Generated
@@ -698,71 +708,137 @@ $indexJsUrl = $module->getUrl('index.js');
 
     <!-- TAB 4: CONFIGURATION -->
     <div x-show="activeTab === 'config'">
-        <!-- Automation & Delivery Section -->
-        <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-robot me-2 text-primary"></i>Automation & Storage Settings</h5>
-            </div>
-            <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold d-flex align-items-center">
-                            Delivery & Automation Mode
-                            <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
-                                <i class="fas fa-info-circle text-muted cursor-pointer"></i>
-                                <div x-show="tip" x-transition class="hover-tip">
-                                    Determines how due letters are processed by the daily automated cron. Hold in Queue allows manual staff generation, while other options generate letters automatically.
+        <div class="row g-4 mb-4">
+            <!-- Automation & Delivery Section -->
+            <div class="col-lg-6">
+                <div class="card shadow h-100">
+                    <div class="card-header py-3">
+                        <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-robot me-2 text-primary"></i>Automation & Storage Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label small fw-bold d-flex align-items-center">
+                                    Delivery & Automation Mode
+                                    <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
+                                        <i class="fas fa-info-circle text-muted cursor-pointer"></i>
+                                        <div x-show="tip" x-transition class="hover-tip">
+                                            Determines how due letters are processed by the daily automated cron. Hold in Queue allows manual staff generation, while other options generate letters automatically.
+                                        </div>
+                                    </span>
+                                </label>
+                                <select class="form-select form-select-sm" x-model="settings.automation_mode">
+                                    <option value="queued">Hold in Queue (Manual Staff Review & Generation)</option>
+                                    <option value="filerepo">Automated: Generate & Save to File Repository</option>
+                                    <template x-if="allowServerPath">
+                                        <option value="server_path">Automated: Generate & Save to Local Server Path</option>
+                                    </template>
+                                </select>
+                            </div>
+
+                            <template x-if="allowServerPath && settings.automation_mode === 'server_path'">
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold d-flex align-items-center">
+                                        Server Directory Output Path
+                                        <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
+                                            <i class="fas fa-info-circle text-muted cursor-pointer"></i>
+                                            <div x-show="tip" x-transition class="hover-tip">
+                                                Absolute path on the server filesystem or network share where generated letters will be saved.
+                                            </div>
+                                        </span>
+                                    </label>
+                                    <input type="text" class="form-control form-control-sm font-monospace" x-model="settings.server_output_path" placeholder="e.g. /mnt/letters or C:\Letters">
                                 </div>
-                            </span>
-                        </label>
-                        <select class="form-select form-select-sm" x-model="settings.automation_mode">
-                            <option value="queued">Hold in Queue (Manual Staff Review & Generation)</option>
-                            <option value="filerepo">Automated: Generate & Save to File Repository</option>
-                            <template x-if="allowServerPath">
-                                <option value="server_path">Automated: Generate & Save to Local Server Path</option>
                             </template>
-                        </select>
-                    </div>
 
-                    <template x-if="allowServerPath && settings.automation_mode === 'server_path'">
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold d-flex align-items-center">
-                                Server Directory Output Path
-                                <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
-                                    <i class="fas fa-info-circle text-muted cursor-pointer"></i>
-                                    <div x-show="tip" x-transition class="hover-tip">
-                                        Absolute path on the server filesystem or network share where generated letters will be saved.
-                                    </div>
-                                </span>
-                            </label>
-                            <input type="text" class="form-control form-control-sm font-monospace" x-model="settings.server_output_path" placeholder="e.g. /mnt/letters or C:\Letters">
+                            <div class="col-12">
+                                <label class="form-label small fw-bold d-flex align-items-center">
+                                    File Repository Templates Folder
+                                    <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
+                                        <i class="fas fa-info-circle text-muted cursor-pointer"></i>
+                                        <div x-show="tip" x-transition class="hover-tip">
+                                            Folder path in the project's File Repository where uploaded Word templates will be organized. Supports subfolder paths (e.g. MailMerge Templates or Templates/{date}) and placeholder tags: {date}, {timestamp}.
+                                        </div>
+                                    </span>
+                                </label>
+                                <input type="text" class="form-control form-control-sm" x-model="settings.file_repo_templates_folder" placeholder="e.g. MailMerge Templates">
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-bold d-flex align-items-center">
+                                    File Repository Generated Letters Folder
+                                    <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
+                                        <i class="fas fa-info-circle text-muted cursor-pointer"></i>
+                                        <div x-show="tip" x-transition class="hover-tip">
+                                            Folder path in the project's File Repository where generated letters will be archived. Default: MailMerge Letters/{date}. Supports subfolder paths (e.g. Letters/{date}/{record}) and placeholder tags: {record}, {letter_name}, {date}, {timestamp}.
+                                        </div>
+                                    </span>
+                                </label>
+                                <input type="text" class="form-control form-control-sm" x-model="settings.file_repo_letters_folder" placeholder="e.g. MailMerge Letters/{date}">
+                            </div>
                         </div>
-                    </template>
-
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold d-flex align-items-center">
-                            File Repository Templates Folder
-                            <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
-                                <i class="fas fa-info-circle text-muted cursor-pointer"></i>
-                                <div x-show="tip" x-transition class="hover-tip">
-                                    Folder path in the project's File Repository where uploaded Word templates will be organized. Supports subfolder paths (e.g. MailMerge Templates or Templates/{date}) and placeholder tags: {date}, {timestamp}.
-                                </div>
-                            </span>
-                        </label>
-                        <input type="text" class="form-control form-control-sm" x-model="settings.file_repo_templates_folder" placeholder="e.g. MailMerge Templates">
                     </div>
+                </div>
+            </div>
 
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold d-flex align-items-center">
-                            File Repository Generated Letters Folder
+            <!-- Queue Table Columns Section -->
+            <div class="col-lg-6">
+                <div class="card shadow h-100">
+                    <div class="card-header py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
+                            <i class="fas fa-columns me-2 text-primary"></i>Queue Table Columns
                             <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
-                                <i class="fas fa-info-circle text-muted cursor-pointer"></i>
+                                <i class="fas fa-info-circle text-muted cursor-pointer" style="font-size: 0.85rem;"></i>
                                 <div x-show="tip" x-transition class="hover-tip">
-                                    Folder path in the project's File Repository where generated letters will be archived. Default: MailMerge Letters/{date}. Supports subfolder paths (e.g. Letters/{date}/{record}) and placeholder tags: {record}, {letter_name}, {date}, {timestamp}.
+                                    Add custom participant data columns to display on the Queue table between the Event and Status columns.
                                 </div>
                             </span>
-                        </label>
-                        <input type="text" class="form-control form-control-sm" x-model="settings.file_repo_letters_folder" placeholder="e.g. MailMerge Letters/{date}">
+                        </h5>
+                        <button type="button" class="btn btn-sm btn-outline-primary fw-bold d-inline-flex align-items-center" @click="addQueueColumn()">
+                            <i class="fas fa-plus me-1"></i> Add Column
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-3">
+                            Configure additional participant columns (e.g. phone number, appointment date, appointment status) to appear in the Queue table.
+                        </p>
+                        <div class="table-responsive" x-show="settings.queue_columns && settings.queue_columns.length > 0">
+                            <table class="table table-sm align-middle mb-0 w-100" style="table-layout: fixed;">
+                                <thead class="table-light small text-muted">
+                                    <tr>
+                                        <th style="width: 44%;">Column Header</th>
+                                        <th style="width: 44%;">REDCap Field / Expression</th>
+                                        <th style="width: 12%;" class="text-end"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="(col, colIdx) in settings.queue_columns" :key="colIdx">
+                                        <tr>
+                                            <td>
+                                                <input type="text" class="form-control form-control-sm" x-model="col.label" placeholder="Header (e.g. Phone, Appt)">
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control form-control-sm font-monospace" list="fieldsList" x-model="col.source" placeholder="e.g. [phone] or [appt_date]">
+                                            </td>
+                                            <td class="text-end text-nowrap">
+                                                <button type="button" class="btn btn-link btn-sm p-0 text-secondary me-1" :disabled="colIdx === 0" @click="moveQueueColumn(colIdx, -1)" title="Move Up">
+                                                    <i class="fas fa-arrow-up"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-link btn-sm p-0 text-secondary me-2" :disabled="colIdx === settings.queue_columns.length - 1" @click="moveQueueColumn(colIdx, 1)" title="Move Down">
+                                                    <i class="fas fa-arrow-down"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" @click="settings.queue_columns.splice(colIdx, 1)" title="Delete Column">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div x-show="!settings.queue_columns || settings.queue_columns.length === 0" class="text-muted small py-4 text-center fst-italic">
+                            No custom columns configured. Click "Add Column" to display extra participant fields in the Queue.
+                        </div>
                     </div>
                 </div>
             </div>

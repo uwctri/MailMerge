@@ -2,7 +2,10 @@ document.addEventListener('alpine:init', () => Alpine.data('mailMergeApp', () =>
     activeTab: 'queue',
     templates: module.config.templates,
     rules: module.config.rules,
-    settings: module.config.settings,
+    settings: {
+        queue_columns: [],
+        ...(module.config.settings || {})
+    },
     queueLastFullEvaluation: module.config.queueLastFullEvaluation,
     allowServerPath: module.config.allowServerPath,
     events: module.config.events,
@@ -79,6 +82,9 @@ document.addEventListener('alpine:init', () => Alpine.data('mailMergeApp', () =>
     },
 
     init() {
+        if (!Array.isArray(this.settings.queue_columns)) {
+            this.settings.queue_columns = [];
+        }
         if (this.queueLastFullEvaluation) {
             this.loadQueue();
         } else {
@@ -105,13 +111,20 @@ document.addEventListener('alpine:init', () => Alpine.data('mailMergeApp', () =>
     filteredQueue() {
         const query = this.queueSearch.trim().toLowerCase();
         if (!query) return this.queue;
-        return this.queue.filter(item => [
-            item.record_id,
-            item.recipient,
-            item.rule_title,
-            item.event_name || 'Default',
-            item.is_generated ? 'Generated' : 'Due'
-        ].some(value => String(value == null ? '' : value).toLowerCase().includes(query)));
+        return this.queue.filter(item => {
+            const matchesBasic = [
+                item.record_id,
+                item.recipient,
+                item.rule_title,
+                item.event_name || 'Default',
+                item.is_generated ? 'Generated' : 'Due'
+            ].some(value => String(value == null ? '' : value).toLowerCase().includes(query));
+            if (matchesBasic) return true;
+            if (Array.isArray(item.custom_data)) {
+                return item.custom_data.some(val => String(val == null ? '' : val).toLowerCase().includes(query));
+            }
+            return false;
+        });
     },
 
     totalPages() {
@@ -628,6 +641,24 @@ document.addEventListener('alpine:init', () => Alpine.data('mailMergeApp', () =>
         } catch (e) {
             this.showAlert('Delete failed', 'danger');
         }
+    },
+
+    addQueueColumn() {
+        if (!Array.isArray(this.settings.queue_columns)) {
+            this.settings.queue_columns = [];
+        }
+        this.settings.queue_columns.push({
+            label: '',
+            source: ''
+        });
+    },
+
+    moveQueueColumn(idx, dir) {
+        if (!Array.isArray(this.settings.queue_columns)) return;
+        const targetIdx = idx + dir;
+        if (targetIdx < 0 || targetIdx >= this.settings.queue_columns.length) return;
+        const item = this.settings.queue_columns.splice(idx, 1)[0];
+        this.settings.queue_columns.splice(targetIdx, 0, item);
     },
 
     addRule() {
