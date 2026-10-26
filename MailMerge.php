@@ -288,14 +288,21 @@ class MailMerge extends AbstractExternalModule
         $val = trim($val);
         if ($val === '') return null;
 
-        $ts = strtotime($val);
-        if ($ts !== false) return $ts;
+        // Check unambiguous ISO Y-m-d formats first (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
+        if (preg_match('/^\d{4}-\d{1,2}-\d{1,2}/', $val)) {
+            $ts = strtotime($val);
+            if ($ts !== false) return $ts;
+        }
 
         // Check for US date format with hyphens MM-DD-YYYY or MM-DD-YYYY HH:MM...
+        // Must run before strtotime() because PHP treats hyphens as European (DD-MM-YYYY)
         if (preg_match('/^(\d{1,2})-(\d{1,2})-(\d{4})(.*)$/', $val, $m)) {
             $ts = strtotime($m[1] . '/' . $m[2] . '/' . $m[3] . $m[4]);
             if ($ts !== false) return $ts;
         }
+
+        $ts = strtotime($val);
+        if ($ts !== false) return $ts;
 
         $commonFormats = [
             'Y-m-d H:i:s', 'Y-m-d H:i', 'Y-m-d',
@@ -576,18 +583,19 @@ class MailMerge extends AbstractExternalModule
     public function resolveFieldValue(string $fName, string $format, $recordId, $targetEventId, $pid, array $recordData, array $allRecordEvents, string $eventPart = ''): string
     {
         $rawVal = '';
+        $returnDatesAsYMD = ($format !== '');
 
         if ($targetEventId) {
             if ($eventPart !== '') {
                 $pipeVar = '[' . $eventPart . '][' . $fName . ']';
-                $piped = Piping::replaceVariablesInLabel($pipeVar, $recordId, $targetEventId, 1, [], false, $pid, false);
+                $piped = Piping::replaceVariablesInLabel($pipeVar, $recordId, $targetEventId, 1, [], false, $pid, false, '', 1, false, false, null, null, $returnDatesAsYMD);
                 if ($piped !== '' && $piped !== false && $piped !== $pipeVar) {
                     $rawVal = (string)$piped;
                 }
             }
             if ((string)$rawVal === '') {
                 $pipeVar = '[' . $fName . ']';
-                $piped = Piping::replaceVariablesInLabel($pipeVar, $recordId, $targetEventId, 1, [], false, $pid, false);
+                $piped = Piping::replaceVariablesInLabel($pipeVar, $recordId, $targetEventId, 1, [], false, $pid, false, '', 1, false, false, null, null, $returnDatesAsYMD);
                 if ($piped !== '' && $piped !== false && $piped !== $pipeVar) {
                     $rawVal = (string)$piped;
                 }
@@ -600,7 +608,7 @@ class MailMerge extends AbstractExternalModule
             }
         } else {
             $pipeVar = '[' . $fName . ']';
-            $piped = Piping::replaceVariablesInLabel($pipeVar, $recordId, $targetEventId, 1, [], false, $pid, false);
+            $piped = Piping::replaceVariablesInLabel($pipeVar, $recordId, $targetEventId, 1, [], false, $pid, false, '', 1, false, false, null, null, $returnDatesAsYMD);
             if ($piped !== '' && $piped !== false && $piped !== $pipeVar) {
                 $rawVal = (string)$piped;
             }
