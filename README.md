@@ -5,3 +5,8 @@ An automated Word document (`.docx`) mail merge, template management, and letter
 ## Installing
 
 You can install the module by dropping it directly in your modules folder (i.e. `/modules/mailmerge_v1.0.0`) or install it from the Vanderbilt Repo.
+
+
+## Dependencies
+
+* **Alpine.js** (`alpine.min.js`) - Auto-updating via GitHub Actions weekly workflow.
