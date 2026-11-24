@@ -668,6 +668,8 @@ document.addEventListener('alpine:init', () => Alpine.data('mailMergeApp', () =>
             title: 'New Letter Rule',
             enabled: true,
             template_doc_id: 0,
+            template_mode: 'single',
+            template_variants: [],
             event_id: '',
             flag_field: 'letter_generated',
             printed_flag_field: '',
@@ -707,6 +709,42 @@ document.addEventListener('alpine:init', () => Alpine.data('mailMergeApp', () =>
                     tag: tag,
                     source: tag.startsWith('[') ? tag : '[' + tag.toLowerCase() + ']'
                 });
+            }
+        });
+    },
+
+    maxVariants: 25,
+
+    templateName(docId) {
+        const t = this.templates.find(t => t.doc_id == docId);
+        return t ? t.name : '';
+    },
+
+    templateExists(docId) {
+        return !docId || this.templates.some(t => t.doc_id == docId);
+    },
+
+    addVariant(rule) {
+        if (!Array.isArray(rule.template_variants)) rule.template_variants = [];
+        if (rule.template_variants.length >= this.maxVariants) return;
+        rule.template_variants.push({ condition: '', template_doc_id: 0 });
+    },
+
+    moveVariant(rule, idx, dir) {
+        const to = idx + dir;
+        const list = rule.template_variants;
+        if (to < 0 || to >= list.length) return;
+        list.splice(to, 0, list.splice(idx, 1)[0]);
+    },
+
+    onVariantTemplateChange(rule, variant) {
+        const tmpl = this.templates.find(t => t.doc_id == variant.template_doc_id);
+        if (!tmpl || !tmpl.tags) return;
+        if (!rule.mappings) rule.mappings = [];
+        const existing = rule.mappings.map(m => m.tag);
+        tmpl.tags.forEach(tag => {
+            if (!existing.includes(tag)) {
+                rule.mappings.push({ tag: tag, source: tag.startsWith('[') ? tag : '[' + tag.toLowerCase() + ']' });
             }
         });
     },

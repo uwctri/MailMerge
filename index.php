@@ -880,14 +880,81 @@ $indexJsUrl = $module->getUrl('index.js');
                         </div>
 
                         <div class="row g-3 mb-3">
-                            <div class="col-12 col-md-6">
-                                <label class="form-label small fw-bold">Template File (.docx)</label>
-                                <select class="form-select form-select-sm" x-model="r.template_doc_id" @change="onTemplateChange(r)">
-                                    <option value="0">-- Select Template --</option>
-                                    <template x-for="t in templates" :key="t.doc_id">
-                                        <option :value="t.doc_id" x-text="t.name"></option>
-                                    </template>
-                                </select>
+                            <div class="col-12">
+                                <div class="btn-group btn-group-sm mb-2" role="group" aria-label="Template mode">
+                                    <input type="radio" class="btn-check" :name="'tm_' + r.id" :id="'tm_s_' + r.id" value="single" x-model="r.template_mode">
+                                    <label class="btn btn-outline-primary" :for="'tm_s_' + r.id">Single template</label>
+                                    <input type="radio" class="btn-check" :name="'tm_' + r.id" :id="'tm_c_' + r.id" value="conditional" x-model="r.template_mode">
+                                    <label class="btn btn-outline-primary" :for="'tm_c_' + r.id">
+                                        Conditional templates
+                                        <span class="badge bg-secondary ms-1" x-show="(r.template_variants || []).length > 0" x-text="(r.template_variants || []).length"></span>
+                                    </label>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label small fw-bold" x-text="r.template_mode === 'conditional' ? 'Fallback template (used if no condition matches)' : 'Template File (.docx)'"></label>
+                                        <select class="form-select form-select-sm" x-model="r.template_doc_id" @change="onTemplateChange(r)">
+                                            <option value="0">-- Select Template --</option>
+                                            <template x-for="t in templates" :key="t.doc_id">
+                                                <option :value="t.doc_id" x-text="t.name"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div x-show="r.template_mode === 'conditional'" class="bg-light border rounded-2 p-2 p-md-3 mt-3">
+                                    <div class="fw-bold text-dark small mb-2 d-flex align-items-center gap-1 border-bottom pb-1">
+                                        <i class="fas fa-random text-primary"></i> Template Variants
+                                        <span class="position-relative d-inline-block ms-1" x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
+                                            <i class="fas fa-info-circle text-muted cursor-pointer"></i>
+                                            <div x-show="tip" x-transition class="hover-tip">First matching condition wins. Evaluated when the letter is generated, using the rule's target event. A blank condition always matches.</div>
+                                        </span>
+                                    </div>
+                                    <div class="table-responsive rule-mapping-table-wrapper">
+                                        <table class="table table-sm align-middle mb-0 w-100" style="table-layout: fixed;">
+                                            <thead class="table-light small text-muted">
+                                                <tr>
+                                                    <th style="width: 40px;">#</th>
+                                                    <th style="width: 45%;">If (REDCap logic)</th>
+                                                    <th>Use template</th>
+                                                    <th style="width: 110px;" class="text-end"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <template x-for="(v, vIdx) in r.template_variants" :key="vIdx">
+                                                    <tr>
+                                                        <td><span class="badge bg-secondary" x-text="vIdx + 1"></span></td>
+                                                        <td><input type="text" class="form-control form-control-sm font-monospace w-100" x-model="v.condition" placeholder="blank = always matches, e.g. [group] = '1'"></td>
+                                                        <td>
+                                                            <select class="form-select form-select-sm" :class="{ 'is-invalid': !templateExists(v.template_doc_id) }" x-model="v.template_doc_id" @change="onVariantTemplateChange(r, v)">
+                                                                <option value="0">-- Select Template --</option>
+                                                                <template x-for="t in templates" :key="t.doc_id">
+                                                                    <option :value="t.doc_id" x-text="t.name"></option>
+                                                                </template>
+                                                            </select>
+                                                            <div class="invalid-feedback" x-show="!templateExists(v.template_doc_id)">Template missing</div>
+                                                        </td>
+                                                        <td class="text-end text-nowrap">
+                                                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" @click="moveVariant(r, vIdx, -1)" :disabled="vIdx === 0" title="Move up"><i class="fas fa-arrow-up"></i></button>
+                                                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" @click="moveVariant(r, vIdx, 1)" :disabled="vIdx === r.template_variants.length - 1" title="Move down"><i class="fas fa-arrow-down"></i></button>
+                                                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" @click="r.template_variants.splice(vIdx, 1)" title="Remove variant"><i class="fas fa-times"></i></button>
+                                                        </td>
+                                                    </tr>
+                                                </template>
+                                                <tr class="text-muted fst-italic small">
+                                                    <td></td>
+                                                    <td colspan="3">Otherwise &rarr; <span x-text="templateName(r.template_doc_id) || '(no fallback template selected)'"></span></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div x-show="!r.template_variants || r.template_variants.length === 0" class="text-muted small py-2 text-center fst-italic">
+                                        No variants yet. The fallback template is used for every record.
+                                    </div>
+                                    <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2 small mt-2" @click="addVariant(r)" :disabled="(r.template_variants || []).length >= maxVariants">
+                                        <i class="fas fa-plus me-1"></i> Add Variant
+                                    </button>
+                                </div>
                             </div>
 
                             <?php if ($isLongitudinal): ?>

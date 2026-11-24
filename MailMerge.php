@@ -234,6 +234,12 @@ class MailMerge extends AbstractExternalModule
 
     public function deleteTemplate($pid, $docId): array
     {
+        foreach ($this->getLetterRules($pid) as $rule) {
+            foreach ($rule['template_variants'] as $v) {
+                if ((string)($v['template_doc_id'] ?? '') === (string)$docId)
+                    return ['success' => false, 'error' => 'This template is used by a template variant in rule "' . ($rule['title'] ?? '') . '". Remove it from the variants first.'];
+            }
+        }
         $templates = $this->getTemplates($pid);
         $updated = [];
         foreach ($templates as $t)
@@ -253,13 +259,52 @@ class MailMerge extends AbstractExternalModule
             }
         }
         unset($r);
+        foreach ($rules as &$r) {
+            $r['template_mode'] = (($r['template_mode'] ?? 'single') === 'conditional') ? 'conditional' : 'single';
+            if (!isset($r['template_variants']) || !is_array($r['template_variants'])) $r['template_variants'] = [];
+        }
+        unset($r);
         return $rules;
     }
 
+    public const MAX_TEMPLATE_VARIANTS = 25;
+
     public function saveLetterRules($pid, $rules): array
     {
+        if (!is_array($rules)) $rules = [];
+        foreach ($rules as &$r) {
+            $r['template_mode'] = (($r['template_mode'] ?? 'single') === 'conditional') ? 'conditional' : 'single';
+            $clean = [];
+            foreach (($r['template_variants'] ?? []) as $v) {
+                if (!is_array($v)) continue;
+                $docId = (int)($v['template_doc_id'] ?? 0);
+                if ($docId <= 0) continue;
+                $clean[] = ['condition' => trim((string)($v['condition'] ?? '')), 'template_doc_id' => $docId];
+                if (count($clean) >= self::MAX_TEMPLATE_VARIANTS) break;
+            }
+            $r['template_variants'] = $clean;
+        }
+        unset($r);
         $this->setProjectSetting('letter_rules', $rules, $pid);
         return ['success' => true];
+    }
+
+    /**
+     * Pick the template for a rule/record: first matching variant wins, else the rule's default template.
+     * Variants are only honored when template_mode is 'conditional'.
+     */
+    public function resolveTemplateDocId(array $rule, $pid, $recordId, array $allRecordEvents = []): int
+    {
+        $default = (int)($rule['template_doc_id'] ?? 0);
+        if (($rule['template_mode'] ?? 'single') !== 'conditional') return $default;
+        $eventId = ($rule['event_id'] ?? '') ?: null;
+        foreach (($rule['template_variants'] ?? []) as $v) {
+            $docId = (int)($v['template_doc_id'] ?? 0);
+            if ($docId <= 0) continue;
+            $cond = trim((string)($v['condition'] ?? ''));
+            if ($cond === '' || $this->evaluateCondition($cond, $pid, $recordId, $eventId, $allRecordEvents)) return $docId;
+        }
+        return $default;
     }
 
     public function formatValue(string $val, string $format, ?string $fieldName = null, ?int $pid = null): string
@@ -793,7 +838,7 @@ class MailMerge extends AbstractExternalModule
                 $queue[] = [
                     'rule_id' => $rule['id'],
                     'rule_title' => $rule['title'],
-                    'template_doc_id' => $rule['template_doc_id'],
+                    'template_doc_id' => $this->resolveTemplateDocId($rule, $pid, $recordId, $recordEvents),
                     'record_id' => $recordId,
                     'event_id' => $primaryEvent,
                     'event_name' => $eventName,
@@ -1140,16 +1185,29 @@ class MailMerge extends AbstractExternalModule
 
     private function mergeSingleLetter($pid, $rule, $recordId): array
     {
-        $docId = $rule['template_doc_id'];
+        $eventId = $rule['event_id'] ?: null;
+        $data = REDCap::getData($pid, 'array', $recordId);
+        $allRecordEvents = $data[$recordId] ?? [];
+
+        $docId = $this->resolveTemplateDocId($rule, $pid, $recordId, $allRecordEvents);
         if (!$docId) return ['success' => false, 'error' => 'No template associated with rule'];
+
+        $templateName = '';
+        $known = false;
+        foreach ($this->getTemplates($pid) as $t) {
+            if ((string)$t['doc_id'] === (string)$docId) {
+                $known = true;
+                $templateName = (string)($t['name'] ?? '');
+                break;
+            }
+        }
+        if (!$known && ($rule['template_mode'] ?? 'single') === 'conditional')
+            return ['success' => false, 'error' => "Selected template variant (doc {$docId}) no longer exists"];
 
         $tmplPath = Files::copyEdocToTemp($docId);
         if (!$tmplPath || !file_exists($tmplPath))
             return ['success' => false, 'error' => 'Failed to access template file'];
 
-        $eventId = $rule['event_id'] ?: null;
-        $data = REDCap::getData($pid, 'array', $recordId);
-        $allRecordEvents = $data[$recordId] ?? [];
         $primaryEvent = $eventId ?: array_key_first($allRecordEvents);
         $recordData = $allRecordEvents[$primaryEvent] ?? [];
 
@@ -1262,6 +1320,7 @@ class MailMerge extends AbstractExternalModule
             'rule_title' => $rule['title'],
             'filename' => $filename,
             'doc_id' => $outDocId,
+            'template_name' => $templateName,
             'username' => defined('USERID') ? USERID : 'System',
         ]);
 
