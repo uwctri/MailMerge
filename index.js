@@ -1,5 +1,6 @@
 document.addEventListener('alpine:init', () => Alpine.data('mailMergeApp', () => ({
     activeTab: 'queue',
+    activeRuleId: (module.config.rules && module.config.rules.length > 0) ? module.config.rules[0].id : null,
     templates: module.config.templates,
     rules: module.config.rules,
     settings: {
@@ -91,8 +92,14 @@ document.addEventListener('alpine:init', () => Alpine.data('mailMergeApp', () =>
             this.runFullQueueEvaluation(false);
         }
         this.loadArchive();
+        if (this.rules && this.rules.length > 0 && !this.rules.some(r => r.id === this.activeRuleId)) {
+            this.activeRuleId = this.rules[0].id;
+        }
         this.triggerFooterUpdate();
         this.$watch('activeTab', () => {
+            this.triggerFooterUpdate();
+        });
+        this.$watch('activeRuleId', () => {
             this.triggerFooterUpdate();
         });
     },
@@ -677,6 +684,7 @@ document.addEventListener('alpine:init', () => Alpine.data('mailMergeApp', () =>
             condition: '',
             mappings: []
         });
+        this.activeRuleId = id;
     },
 
     createRuleId() {
@@ -693,10 +701,17 @@ document.addEventListener('alpine:init', () => Alpine.data('mailMergeApp', () =>
         copy.title = `${rule.title || 'New Letter Rule'} (Copy)`;
         const index = this.rules.indexOf(rule);
         this.rules.splice(index + 1, 0, copy);
+        this.activeRuleId = copy.id;
     },
 
     removeRule(idx) {
-        if (confirm('Delete this letter rule?')) this.rules.splice(idx, 1);
+        if (!confirm('Delete this letter rule?')) return;
+        const removedId = this.rules[idx]?.id;
+        this.rules.splice(idx, 1);
+        if (this.activeRuleId === removedId) {
+            const nextRule = this.rules[Math.min(idx, this.rules.length - 1)];
+            this.activeRuleId = nextRule ? nextRule.id : null;
+        }
     },
 
     onTemplateChange(rule) {

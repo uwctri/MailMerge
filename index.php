@@ -81,6 +81,39 @@ $indexJsUrl = $module->getUrl('index.js');
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
     }
 
+    .rule-tab-btn {
+        border: 1px solid #ced4da;
+        background-color: #f8f9fa;
+        color: #343a40;
+        font-size: 0.85rem;
+        padding: 0.4rem 0.85rem;
+        border-radius: 0.4rem;
+        transition: all 0.15s ease-in-out;
+        max-width: 260px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .rule-tab-btn:hover {
+        background-color: #e9ecef;
+        border-color: #adb5bd;
+    }
+
+    .rule-tab-btn.active {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+        color: #ffffff;
+        font-weight: 600;
+        box-shadow: 0 2px 5px rgba(13, 110, 253, 0.25);
+    }
+
+    .rule-tab-btn.rule-disabled:not(.active) {
+        opacity: 0.65;
+        background-color: #f1f3f5;
+        color: #6c757d;
+    }
+
     .drop-zone {
         border: 2px dashed #0d6efd;
         background-color: #f8faff;
@@ -854,8 +887,24 @@ $indexJsUrl = $module->getUrl('index.js');
                 </button>
             </div>
             <div class="card-body">
+                <div x-show="rules.length > 0" class="d-flex flex-wrap align-items-center gap-2 mb-3 pb-3 border-bottom" role="tablist" aria-label="Letter rules">
+                    <template x-for="(r, idx) in rules" :key="'tab_' + r.id">
+                        <button
+                            type="button"
+                            role="tab"
+                            class="btn btn-sm rule-tab-btn d-inline-flex align-items-center"
+                            :class="{ 'active': activeRuleId === r.id, 'rule-disabled': !r.enabled }"
+                            :aria-selected="activeRuleId === r.id"
+                            :title="(r.title && r.title.trim()) ? r.title : ('Rule #' + (idx + 1))"
+                            @click="activeRuleId = r.id">
+                            <i x-show="!r.enabled" class="fas fa-pause-circle me-1 small"></i>
+                            <span class="text-truncate" x-text="(r.title && r.title.trim()) ? r.title : ('Rule #' + (idx + 1))"></span>
+                        </button>
+                    </template>
+                </div>
+
                 <template x-for="(r, idx) in rules" :key="r.id">
-                    <div class="rule-card rounded-3 p-3 mb-3 position-relative">
+                    <div x-show="activeRuleId === r.id" class="rule-card rounded-3 p-3 mb-0 position-relative">
                         <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2 flex-wrap gap-2">
                             <div class="d-flex align-items-center gap-2 flex-grow-1" style="min-width: 0; max-width: 560px;">
                                 <div class="input-group input-group-sm flex-grow-1">
