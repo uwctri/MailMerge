@@ -1110,11 +1110,11 @@ $indexJsUrl = $module->getUrl('index.js');
                                             <i class="fas fa-paint-brush text-primary"></i> Formats (<code>:format</code>)
                                         </div>
                                         <ul class="list-unstyled small text-muted mb-0 d-flex flex-column gap-1">
-                                            <li><span class="text-secondary fw-semibold">Date:</span> <code>[dob:m/d/y]</code>, <code>[appt:F j, Y]</code></li>
+                                            <li><span class="text-secondary fw-semibold">Date:</span> <code>[dob:m/d/y]</code>, <code>[appt:l, m/d/Y]</code></li>
                                             <li><span class="text-secondary fw-semibold">Text Case:</span> <code>[city:upper]</code>, <code>[name:title]</code></li>
+                                            <li><span class="text-secondary fw-semibold">First Word:</span> <code>[hc_name:first_word]</code></li>
                                             <li><span class="text-secondary fw-semibold">Currency:</span> <code>[fee:currency]</code> <span class="text-dark">($50.00)</span></li>
-                                            <li><span class="text-secondary fw-semibold">Decimals:</span> <code>[val:number:2]</code> <span class="text-dark">(12.50)</span></li>
-                                            <li><span class="text-secondary fw-semibold">Integer:</span> <code>[val:number:0]</code> <span class="text-dark">(13)</span></li>
+                                            <li><span class="text-secondary fw-semibold">Numbers:</span> <code>[val:number:2]</code>, <code>[val:number:0]</code></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -1141,10 +1141,10 @@ $indexJsUrl = $module->getUrl('index.js');
                                             <i class="fas fa-code-branch text-primary"></i> Logic &amp; Functions
                                         </div>
                                         <ul class="list-unstyled small text-muted mb-0 d-flex flex-column gap-1">
-                                            <li><span class="text-secondary fw-semibold">If / Else:</span> <code>if([age] &gt;= 18, 'Adult', 'Minor')</code></li>
+                                            <li><span class="text-secondary fw-semibold">If / Else:</span> <code>if([dt]&lt;&gt;'', '[dt:l, m/d/Y]', 'TBD')</code></li>
+                                            <li><span class="text-secondary fw-semibold">Date Add:</span> <code>dateadd([time], -1, 'h', 'h:ia')</code></li>
                                             <li><span class="text-secondary fw-semibold">Join Text:</span> <code>concat([first_name], ' ', [last_name])</code></li>
                                             <li><span class="text-secondary fw-semibold">Age / Days:</span> <code>datediff([dob], 'today', 'y')</code></li>
-                                            <li><span class="text-secondary fw-semibold">Rounding:</span> <code>round([weight] / 2.2, 1)</code></li>
                                             <li class="mt-auto pt-1 text-muted fst-italic" style="font-size: 0.72rem;">
                                                 Plain text renders as static text
                                             </li>

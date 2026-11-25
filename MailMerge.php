@@ -318,6 +318,12 @@ class MailMerge extends AbstractExternalModule
         if ($lowerFmt === 'lower' || $lowerFmt === 'lowercase') return mb_strtolower($val, 'UTF-8');
         if ($lowerFmt === 'title' || $lowerFmt === 'capitalize') return mb_convert_case(mb_strtolower($val, 'UTF-8'), MB_CASE_TITLE, 'UTF-8');
         if ($lowerFmt === 'trim') return trim($val);
+        if ($lowerFmt === 'first_word' || $lowerFmt === 'firstword' || $lowerFmt === 'first') {
+            $trimmed = trim($val);
+            if ($trimmed === '') return '';
+            $parts = preg_split('/\s+/u', $trimmed, 2);
+            return $parts[0] ?? '';
+        }
 
         if ($lowerFmt === 'currency') return '$' . number_format((float)$val, 2);
         if (str_starts_with($lowerFmt, 'number:') || str_starts_with($lowerFmt, 'decimal:')) {
@@ -348,43 +354,55 @@ class MailMerge extends AbstractExternalModule
         return $val;
     }
 
-    public static function parseDateToTimestamp(string $val): ?int
+    public static function parseDateToDateTime(string $val): ?\DateTime
     {
         $val = trim($val);
         if ($val === '') return null;
 
         // Check unambiguous ISO Y-m-d formats first (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
         if (preg_match('/^\d{4}-\d{1,2}-\d{1,2}/', $val)) {
-            $ts = strtotime($val);
-            if ($ts !== false) return $ts;
+            try {
+                return new \DateTime($val);
+            } catch (Throwable $e) {
+            }
         }
 
         // Check for US date format with hyphens MM-DD-YYYY or MM-DD-YYYY HH:MM...
-        // Must run before strtotime() because PHP treats hyphens as European (DD-MM-YYYY)
+        // Must run before DateTime() because PHP treats hyphens as European (DD-MM-YYYY)
         if (preg_match('/^(\d{1,2})-(\d{1,2})-(\d{4})(.*)$/', $val, $m)) {
-            $ts = strtotime($m[1] . '/' . $m[2] . '/' . $m[3] . $m[4]);
-            if ($ts !== false) return $ts;
+            try {
+                return new \DateTime($m[1] . '/' . $m[2] . '/' . $m[3] . $m[4]);
+            } catch (Throwable $e) {
+            }
         }
 
-        $ts = strtotime($val);
-        if ($ts !== false) return $ts;
+        try {
+            return new \DateTime($val);
+        } catch (Throwable $e) {
+        }
 
         $commonFormats = [
-            'Y-m-d H:i:s', 'Y-m-d H:i', 'Y-m-d',
-            'm/d/Y H:i:s', 'm/d/Y H:i', 'm/d/Y',
-            'm-d-Y H:i:s', 'm-d-Y H:i', 'm-d-Y',
-            'd/m/Y H:i:s', 'd/m/Y H:i', 'd/m/Y',
-            'd-m-Y H:i:s', 'd-m-Y H:i', 'd-m-Y',
+            'Y-m-d H:i:s', 'Y-m-d H:i', '!Y-m-d',
+            'm/d/Y H:i:s', 'm/d/Y H:i', '!m/d/Y',
+            'm-d-Y H:i:s', 'm-d-Y H:i', '!m-d-Y',
+            'd/m/Y H:i:s', 'd/m/Y H:i', '!d/m/Y',
+            'd-m-Y H:i:s', 'd-m-Y H:i', '!d-m-Y',
             'H:i:s', 'H:i', 'g:i A', 'g:i:s A', 'g:i a', 'g:i:s a',
         ];
         foreach ($commonFormats as $f) {
             $dt = \DateTime::createFromFormat($f, $val);
             if ($dt !== false) {
-                return $dt->getTimestamp();
+                return $dt;
             }
         }
 
         return null;
+    }
+
+    public static function parseDateToTimestamp(string $val): ?int
+    {
+        $dt = self::parseDateToDateTime($val);
+        return $dt ? $dt->getTimestamp() : null;
     }
 
     public static function convertDateFormatToPhp(string $fmt): string
@@ -562,17 +580,32 @@ class MailMerge extends AbstractExternalModule
         if ($stripped === 'record' || $stripped === 'record_id') return (string)$recordId;
         if ($stripped === 'user' || $stripped === 'user_name') return defined('USERID') ? USERID : '';
 
-        // Logic / function expressions: if(...), datediff(...), concat(...), round(...), @IF(...), @CALCTEXT(...)
+        // Logic / function expressions: dateadd(...), if(...), datediff(...), concat(...), round(...), @IF(...), @CALCTEXT(...)
         $expr = $clean;
         if (preg_match('/^@(CALCTEXT|calctext)\s*\((.+)\)$/is', $expr, $m)) $expr = trim($m[2]);
         if (str_starts_with($expr, '@')) $expr = substr($expr, 1);
+
+        if (preg_match('/^dateadd\s*\(/i', $expr, $daMatch)) {
+            $openPos = strpos($expr, '(');
+            $closePos = $openPos !== false ? self::findMatchingParen($expr, $openPos) : null;
+            if ($closePos === strlen($expr) - 1) {
+                $args = self::splitTopLevelArgs(substr($expr, $openPos + 1, $closePos - $openPos - 1));
+                return $this->evaluateDateAddArgs($args, $recordId, $eventId, $pid, $recordData, $allRecordEvents);
+            }
+        }
+
         $logicFunctions = 'if|datediff|concat|concat_ws|round|roundup|rounddown|sum|mean|min|max|abs|sqrt|upper|lower|trim|left|right|mid|length|contains|starts_with|ends_with|replace_text|year|month|day|isnumber|isinteger|isblankormissingcode';
         if (preg_match('/^(' . $logicFunctions . ')\s*\(.+/i', $expr)) {
-            $eval = REDCap::evaluateLogic($expr, $pid, $recordId, $eventId, 1, "", "", null, true);
+            $preparedExpr = $this->expandDateAddCalls($expr, $recordId, $eventId, $pid, $recordData, $allRecordEvents);
+            $preparedExpr = $this->expandQuotedFormattedTokens($preparedExpr, $recordId, $eventId, $pid, $recordData, $allRecordEvents);
+            $preparedExpr = $this->prefixCrossEventFormFields($preparedExpr, $pid, $eventId, $recordData, $allRecordEvents);
+
+            $eval = REDCap::evaluateLogic($preparedExpr, $pid, $recordId, $eventId, 1, "", "", null, true);
             if (($eval === null || $eval === false || $eval === '') && !empty($allRecordEvents)) {
-                $uniqueEvents = $this->getProjectEventNames($pid);
-                $prefixedExpr = preg_replace_callback('/(?<!\])\[([a-zA-Z0-9_\-]+)\]/', function ($m) use ($eventId, $recordData, $allRecordEvents, $uniqueEvents) {
+                $uniqueEvents = $this->getProjectEventNames($pid) ?: [];
+                $prefixedExpr = self::replaceOutsideQuotes($preparedExpr, '/(?<!\])\[([a-zA-Z0-9_\-]+)\](?!\s*\[)/', function ($m) use ($eventId, $recordData, $allRecordEvents, $uniqueEvents) {
                     $f = $m[1];
+                    if (in_array($f, $uniqueEvents, true)) return $m[0];
                     if (!isset($recordData[$f]) || (string)$recordData[$f] === '') {
                         foreach ($allRecordEvents as $evId => $evRow) {
                             if ($evId != $eventId && isset($evRow[$f]) && (string)$evRow[$f] !== '') {
@@ -582,9 +615,9 @@ class MailMerge extends AbstractExternalModule
                         }
                     }
                     return $m[0];
-                }, $expr);
+                });
 
-                if ($prefixedExpr !== $expr) {
+                if ($prefixedExpr !== $preparedExpr) {
                     $eval = REDCap::evaluateLogic($prefixedExpr, $pid, $recordId, $eventId, 1, "", "", null, true);
                 }
             }
@@ -671,6 +704,21 @@ class MailMerge extends AbstractExternalModule
                     $rawVal = (string)$v;
                 }
             }
+            if ((string)$rawVal === '' && $eventPart === '' && !empty($allRecordEvents)) {
+                $proj = $this->getProjectObject($pid);
+                $formName = $proj->metadata[$fName]['form_name'] ?? null;
+                $onTargetEvent = $formName && isset($proj->eventsForms[$targetEventId]) && in_array($formName, $proj->eventsForms[$targetEventId], true);
+                if (!$onTargetEvent) {
+                    foreach ($allRecordEvents as $evId => $evRow) {
+                        if ($evId == $targetEventId) continue;
+                        if (isset($evRow[$fName]) && !is_array($evRow[$fName]) && (string)$evRow[$fName] !== '') {
+                            $pipedOther = Piping::replaceVariablesInLabel('[' . $fName . ']', $recordId, $evId, 1, [], false, $pid, false, '', 1, false, false, null, null, $returnDatesAsYMD);
+                            $rawVal = ($pipedOther !== '' && $pipedOther !== false && $pipedOther !== '[' . $fName . ']') ? (string)$pipedOther : (string)$evRow[$fName];
+                            break;
+                        }
+                    }
+                }
+            }
         } else {
             $pipeVar = '[' . $fName . ']';
             $piped = Piping::replaceVariablesInLabel($pipeVar, $recordId, $targetEventId, 1, [], false, $pid, false, '', 1, false, false, null, null, $returnDatesAsYMD);
@@ -696,6 +744,311 @@ class MailMerge extends AbstractExternalModule
         }
 
         return (string)$rawVal;
+    }
+
+    public static function findMatchingParen(string $str, int $openPos): ?int
+    {
+        $len = strlen($str);
+        $inQuote = null;
+        $bracketDepth = 0;
+        $parenDepth = 0;
+
+        for ($i = $openPos + 1; $i < $len; $i++) {
+            $ch = $str[$i];
+            if ($inQuote !== null) {
+                if ($ch === '\\') {
+                    $i++;
+                } elseif ($ch === $inQuote) {
+                    $inQuote = null;
+                }
+                continue;
+            }
+            if ($ch === "'" || $ch === '"') {
+                $inQuote = $ch;
+            } elseif ($ch === '[') {
+                $bracketDepth++;
+            } elseif ($ch === ']') {
+                $bracketDepth = max(0, $bracketDepth - 1);
+            } elseif ($bracketDepth === 0) {
+                if ($ch === '(') {
+                    $parenDepth++;
+                } elseif ($ch === ')') {
+                    if ($parenDepth === 0) return $i;
+                    $parenDepth--;
+                }
+            }
+        }
+        return null;
+    }
+
+    public static function splitTopLevelArgs(string $argList): array
+    {
+        $args = [];
+        $len = strlen($argList);
+        $inQuote = null;
+        $bracketDepth = 0;
+        $parenDepth = 0;
+        $start = 0;
+
+        for ($i = 0; $i < $len; $i++) {
+            $ch = $argList[$i];
+            if ($inQuote !== null) {
+                if ($ch === '\\') {
+                    $i++;
+                } elseif ($ch === $inQuote) {
+                    $inQuote = null;
+                }
+                continue;
+            }
+            if ($ch === "'" || $ch === '"') {
+                $inQuote = $ch;
+            } elseif ($ch === '[') {
+                $bracketDepth++;
+            } elseif ($ch === ']') {
+                $bracketDepth = max(0, $bracketDepth - 1);
+            } elseif ($bracketDepth === 0) {
+                if ($ch === '(') {
+                    $parenDepth++;
+                } elseif ($ch === ')') {
+                    $parenDepth = max(0, $parenDepth - 1);
+                } elseif ($ch === ',' && $parenDepth === 0) {
+                    $args[] = trim(substr($argList, $start, $i - $start));
+                    $start = $i + 1;
+                }
+            }
+        }
+        $tail = trim(substr($argList, $start));
+        if ($tail !== '' || !empty($args)) {
+            $args[] = $tail;
+        }
+        return $args;
+    }
+
+    public static function unquoteLiteral(string $s): array
+    {
+        $s = trim($s);
+        $len = strlen($s);
+        if ($len >= 2 && ($s[0] === "'" || $s[0] === '"') && $s[$len - 1] === $s[0]) {
+            $quote = $s[0];
+            $isSingleLiteral = true;
+            for ($i = 1; $i < $len - 1; $i++) {
+                if ($s[$i] === '\\') {
+                    $i++;
+                } elseif ($s[$i] === $quote) {
+                    $isSingleLiteral = false;
+                    break;
+                }
+            }
+            if ($isSingleLiteral) {
+                $inner = substr($s, 1, $len - 2);
+                $inner = str_replace(['\\' . $quote, '\\\\'], [$quote, '\\'], $inner);
+                return [true, $inner];
+            }
+        }
+        return [false, $s];
+    }
+
+    protected static function replaceOutsideQuotes(string $expr, string $pattern, callable $callback): string
+    {
+        $parts = preg_split('/(\'(?:[^\'\\\\]|\\\\.)*\'|"(?:[^"\\\\]|\\\\.)*")/s', $expr, -1, PREG_SPLIT_DELIM_CAPTURE);
+        if ($parts === false) return $expr;
+        foreach ($parts as $idx => $part) {
+            if ($idx % 2 === 0 && $part !== '') {
+                $parts[$idx] = preg_replace_callback($pattern, $callback, $part);
+            }
+        }
+        return implode('', $parts);
+    }
+
+    protected function prefixCrossEventFormFields(string $expr, $pid, $eventId, array $recordData, array $allRecordEvents): string
+    {
+        if (!$eventId || empty($allRecordEvents)) return $expr;
+        $proj = $this->getProjectObject($pid);
+        if (!$proj->longitudinal) return $expr;
+        $uniqueEvents = $proj->getUniqueEventNames() ?: [];
+        $designatedForms = $proj->eventsForms[$eventId] ?? [];
+
+        return self::replaceOutsideQuotes($expr, '/(?<!\])\[([a-zA-Z0-9_\-]+)\](?!\s*\[)/', function ($m) use ($eventId, $recordData, $allRecordEvents, $uniqueEvents, $proj, $designatedForms) {
+            $f = $m[1];
+            if (in_array($f, $uniqueEvents, true)) return $m[0];
+            if (isset($recordData[$f]) && (string)$recordData[$f] !== '') return $m[0];
+
+            $formName = $proj->metadata[$f]['form_name'] ?? null;
+            if ($formName && in_array($formName, $designatedForms, true)) return $m[0];
+
+            foreach ($allRecordEvents as $evId => $evRow) {
+                if ($evId != $eventId && isset($evRow[$f]) && (string)$evRow[$f] !== '') {
+                    $uName = $uniqueEvents[$evId] ?? '';
+                    if ($uName !== '') return '[' . $uName . '][' . $f . ']';
+                }
+            }
+            return $m[0];
+        });
+    }
+
+    public function evaluateDateAddArgs(array $args, $recordId, $eventId, $pid, array $recordData, array $allRecordEvents): string
+    {
+        if (count($args) < 3) return '';
+
+        [$wasQuotedVal, $rawValArg] = self::unquoteLiteral($args[0]);
+        if ($wasQuotedVal && !str_contains($rawValArg, '[') && !in_array(strtolower(trim($rawValArg)), ['today', 'now', 'date', 'time', 'timestamp'], true)) {
+            $valStr = trim($rawValArg);
+        } else {
+            $valStr = trim($this->resolveMappingSource($rawValArg, $recordId, $eventId, $pid, $recordData, $allRecordEvents));
+        }
+        if ($valStr === '') return '';
+
+        $dt = self::parseDateToDateTime($valStr);
+        if ($dt === null) return $valStr;
+
+        [, $rawOffsetArg] = self::unquoteLiteral($args[1]);
+        $offsetStr = is_numeric(trim($rawOffsetArg))
+            ? trim($rawOffsetArg)
+            : trim($this->resolveMappingSource($rawOffsetArg, $recordId, $eventId, $pid, $recordData, $allRecordEvents));
+        $offsetNum = is_numeric($offsetStr) ? (float)$offsetStr : 0.0;
+
+        [, $rawUnitArg] = self::unquoteLiteral($args[2]);
+        $unitTrimmed = trim($rawUnitArg);
+        if ($unitTrimmed === 'M') {
+            $normUnit = 'months';
+        } else {
+            $normUnit = match (strtolower($unitTrimmed)) {
+                'y', 'yr', 'yrs', 'year', 'years' => 'years',
+                'mo', 'mos', 'month', 'months' => 'months',
+                'w', 'wk', 'wks', 'week', 'weeks' => 'weeks',
+                'd', 'day', 'days' => 'days',
+                'h', 'hr', 'hrs', 'hour', 'hours' => 'hours',
+                'm', 'min', 'mins', 'minute', 'minutes', 'i' => 'minutes',
+                's', 'sec', 'secs', 'second', 'seconds' => 'seconds',
+                default => 'days',
+            };
+        }
+
+        if (abs($offsetNum - round($offsetNum)) < 1e-9) {
+            $intOff = (int)round($offsetNum);
+            if ($intOff !== 0) {
+                $sign = $intOff > 0 ? '+' : '';
+                $dt->modify("{$sign}{$intOff} {$normUnit}");
+            }
+        } else {
+            $secMap = ['weeks' => 604800, 'days' => 86400, 'hours' => 3600, 'minutes' => 60, 'seconds' => 1];
+            if (isset($secMap[$normUnit])) {
+                $secs = (int)round($offsetNum * $secMap[$normUnit]);
+                if ($secs !== 0) {
+                    $sign = $secs > 0 ? '+' : '';
+                    $dt->modify("{$sign}{$secs} seconds");
+                }
+            } else {
+                $intPart = (int)$offsetNum;
+                if ($intPart !== 0) {
+                    $sign = $intPart > 0 ? '+' : '';
+                    $dt->modify("{$sign}{$intPart} {$normUnit}");
+                }
+            }
+        }
+
+        if (isset($args[3]) && trim($args[3]) !== '') {
+            [, $fmtRaw] = self::unquoteLiteral($args[3]);
+            $phpFmt = self::convertDateFormatToPhp($fmtRaw);
+        } elseif (preg_match('/^\d{1,2}:\d{2}(:\d{2})?(\s*[aApP][mM])?$/', $valStr)) {
+            $phpFmt = 'H:i';
+        } elseif (str_contains($valStr, ':')) {
+            $phpFmt = 'Y-m-d H:i';
+        } else {
+            $phpFmt = 'Y-m-d';
+        }
+
+        return $dt->format($phpFmt);
+    }
+
+    public function expandDateAddCalls(string $expr, $recordId, $eventId, $pid, array $recordData, array $allRecordEvents): string
+    {
+        if (stripos($expr, 'dateadd') === false) return $expr;
+
+        $out = '';
+        $len = strlen($expr);
+        $inQuote = null;
+        $i = 0;
+
+        while ($i < $len) {
+            $ch = $expr[$i];
+            if ($inQuote !== null) {
+                $out .= $ch;
+                if ($ch === '\\' && $i + 1 < $len) {
+                    $out .= $expr[++$i];
+                } elseif ($ch === $inQuote) {
+                    $inQuote = null;
+                }
+                $i++;
+                continue;
+            }
+            if ($ch === "'" || $ch === '"') {
+                $inQuote = $ch;
+                $out .= $ch;
+                $i++;
+                continue;
+            }
+            if (($i === 0 || !preg_match('/[a-zA-Z0-9_]/', $expr[$i - 1])) && preg_match('/^dateadd\s*\(/i', substr($expr, $i), $m)) {
+                $openPos = $i + strlen($m[0]) - 1;
+                $closePos = self::findMatchingParen($expr, $openPos);
+                if ($closePos !== null) {
+                    $args = self::splitTopLevelArgs(substr($expr, $openPos + 1, $closePos - $openPos - 1));
+                    $val = $this->evaluateDateAddArgs($args, $recordId, $eventId, $pid, $recordData, $allRecordEvents);
+                    $escaped = str_replace(['\\', "'"], ['\\\\', "\\'"], $val);
+                    $out .= "'" . $escaped . "'";
+                    $i = $closePos + 1;
+                    continue;
+                }
+            }
+            $out .= $ch;
+            $i++;
+        }
+
+        return $out;
+    }
+
+    public function expandQuotedFormattedTokens(string $expr, $recordId, $eventId, $pid, array $recordData, array $allRecordEvents): string
+    {
+        if (!str_contains($expr, '[') || !str_contains($expr, ':')) return $expr;
+
+        $uniqueEvents = $this->getProjectEventNames($pid) ?: [];
+        $eventIdsByName = array_flip($uniqueEvents);
+
+        return preg_replace_callback('/\'((?:[^\'\\\\]|\\\\.)*)\'|"((?:[^"\\\\]|\\\\.)*)"/s', function ($qMatch) use ($recordId, $eventId, $pid, $recordData, $allRecordEvents, $eventIdsByName) {
+            $quote = $qMatch[0][0];
+            $inner = $quote === "'" ? $qMatch[1] : $qMatch[2];
+            if (!str_contains($inner, '[') || !str_contains($inner, ':')) return $qMatch[0];
+
+            $unescapedInner = str_replace(['\\' . $quote, '\\\\'], [$quote, '\\'], $inner);
+            $replaced = preg_replace_callback('/(?:\[([a-zA-Z0-9_\-]+)\])?\[([a-zA-Z0-9_\-]+)(?::([^\]]+))?\](?::([a-zA-Z0-9_\/:\s\-]+))?/', function ($m) use ($recordId, $eventId, $pid, $recordData, $allRecordEvents, $eventIdsByName) {
+                $eventPart = !empty($m[1]) ? trim($m[1]) : '';
+                $fName = trim($m[2]);
+                $format = !empty($m[3]) ? trim($m[3]) : (!empty($m[4]) ? trim($m[4]) : '');
+                if ($format === '') return $m[0];
+
+                if ($eventPart === '' && in_array(strtolower($fName), ['today', 'now', 'time'], true)) {
+                    return $this->resolveMappingSource($fName . ':' . $format, $recordId, $eventId, $pid, $recordData, $allRecordEvents);
+                }
+
+                $targetEventId = null;
+                if ($eventPart !== '') {
+                    if (isset($eventIdsByName[$eventPart])) {
+                        $targetEventId = $eventIdsByName[$eventPart];
+                    } else {
+                        $proj = $this->getProjectObject($pid);
+                        $targetEventId = $proj->getEventIdUsingUniqueEventName($eventPart);
+                    }
+                    if (!$targetEventId) return $m[0];
+                }
+
+                $activeEvId = $targetEventId ?: $eventId;
+                return $this->resolveFieldValue($fName, $format, $recordId, $activeEvId, $pid, $recordData, $allRecordEvents, $eventPart);
+            }, $unescapedInner);
+
+            if ($replaced === $unescapedInner) return $qMatch[0];
+            $reEscaped = str_replace(['\\', $quote], ['\\\\', '\\' . $quote], $replaced);
+            return $quote . $reEscaped . $quote;
+        }, $expr);
     }
 
     public function evaluateQueue($pid, ?array $recordIds = null): array
